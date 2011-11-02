@@ -1,0 +1,3 @@
+[submodule "source/package/boa"]
+	path = source/package/boa
+	url = ../repositories/boa.git
