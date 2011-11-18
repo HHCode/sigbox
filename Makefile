@@ -2,7 +2,7 @@
 
 export SYSTEM := SIGNAL_BOX
 
-include Rules.make
+include ./build/Rules.make
 
 .PHONY : all exe main_exe base_exe camera_exe common_exe libs depend filesys install-kmodules install-dmodules install-exes install dvsdkuntar dvsdkbuild dvsdk dvsdkall dvsdkdel dvsdkclean lspuntar lspbuild lspcfg lsp lspall lspdel lspclean lspdistclean uboot ubootall ubootcfg ubootbuild ubootclean ramdisk cramfs clean
 
@@ -15,8 +15,12 @@ all:
 	make install
 
 
+install-package:
+	make -C$(PACKAGE_PATH) install-thttpd
+
+
 package:
-	make  -C$(PACKAGE_PATH) boa
+	make -C$(PACKAGE_PATH) thttpd 
 
 filesys:
 	@sh -x $(TARGET_B_FS)/build_fs.sh $(TARGET_FS) $(FILESYS_TAR) $(USER) $(FILESYS_CHANGE) $(BUILD_HOME)
@@ -104,6 +108,7 @@ endif
 	make common_exe MAKE_TARGET=install
 
 install:
+	make install-package 
 	make filesys
 	-rm -rf $(TARGET_FS)/opt/*
 	mkdir -p $(TARGET_FS_DIR)

@@ -1,3 +1,6 @@
 [submodule "source/package/boa"]
 	path = source/package/boa
 	url = ../repositories/boa.git
+[submodule "source/package/thttpd"]
+	path = source/package/thttpd
+	url = ../repositories/thttpd.git
