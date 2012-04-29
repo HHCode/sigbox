@@ -4,21 +4,18 @@
 
 Locking=`param name`
 
-echo 
-echo -e "<HTML>\n<BODY>\n"
-
+head
 
 if [ ! -e ./locked ];then
     if [ "$Locking" != "" ];then
         echo $Locking > ./locked
-        echo "<P>OK lock $Locking"
+        echo "OK lock $Locking"
     else 
-        echo "<P>FAILED please input locked name"
+        echo "FAILED please input locked name"
     fi
 else
     Locked=`cat ./locked`
-    echo "<P>FAILED already locked by $Locked"
+    echo "FAILED already locked by $Locked"
 fi
 
-
-echo -e "</HTML>\n</BODY>\n"
+rear

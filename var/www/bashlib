@@ -234,13 +234,30 @@ function send_redirect {
   echo ""
 }
 
-function returnMsg 
+function head
 {
+cat << EOF
+Content-type: text/plain
+Expires: $date
 
-printf "\n<HTML>\n\
-<BODY>\n\
-<P>%s\n\
-</BODY>\n\
-</HTML>\n\n" $1
+EOF
 }
+
+
+
+function rear
+{
+	echo
+	if [ "$CONTENT_LENGTH" != "" ] ; then
+	    if [ "$CONTENT_LENGTH" -ne 0 ] ; then
+		echo 'Input:'
+		echo
+		dd bs=1 count=$CONTENT_LENGTH
+		echo
+	    fi
+	fi
+
+
+}
+
 

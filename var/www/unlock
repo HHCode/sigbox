@@ -4,21 +4,20 @@
 
 UnlockName=`param name`
 
-echo 
-echo -e "<HTML>\n<BODY>\n"
-
+head
 
 if [ ! -e ./locked ];then
-    echo "<P>FAILED unlock $UnlockName"
+    echo "FAILED unlock $UnlockName"
 else
     Locked=`cat ./locked`
     if [ "$Locked" == "$UnlockName" ];then
         rm -rf ./locked
-        echo "<P>OK unlock $UnlockName"
+        echo "OK unlock $UnlockName"
     else
-        echo "<P>FAILED already locked by $Locked"
+        echo "FAILED already locked by $Locked"
     fi
 fi
 
+rear
 
-echo -e "</HTML>\n</BODY>\n"
+
