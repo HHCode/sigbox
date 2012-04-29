@@ -1,0 +1,24 @@
+#!/bin/bash
+
+. ./bashlib
+
+UnlockName=`param name`
+
+echo 
+echo -e "<HTML>\n<BODY>\n"
+
+
+if [ ! -e ./locked ];then
+    echo "<P>FAILED unlock $UnlockName"
+else
+    Locked=`cat ./locked`
+    if [ "$Locked" == "$UnlockName" ];then
+        rm -rf ./locked
+        echo "<P>OK unlock $UnlockName"
+    else
+        echo "<P>FAILED already locked by $Locked"
+    fi
+fi
+
+
+echo -e "</HTML>\n</BODY>\n"
