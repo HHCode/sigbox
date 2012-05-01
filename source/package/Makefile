@@ -17,7 +17,7 @@ install-thttpd:
 
 
 thttpd:
-	make -Cthttpd $(MAKE_TARGET)
+	make -Cthttpd $(MAKE_TARGET) CC=$(CC)
 
 clean:
 #	make -Cboa $(MAKE_TARGET)=clean
@@ -26,4 +26,4 @@ clean:
 
 install:
 #	cp ./boa/src/boa $(FILESYS_PATH)
-	make thttpd-install
+	make -C./thttpd install
