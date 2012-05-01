@@ -15,7 +15,7 @@ while true ; do
 	exit
     fi
     sleep 10
-    egrep ' thttpd\[' /var/log/messages |
-      tail -33 |
-      mail -s "thttpd on `hostname` restarted" root
+#    egrep ' thttpd\[' /var/log/messages |
+#      tail -33 |
+#      mail -s "thttpd on `hostname` restarted" root
 done
