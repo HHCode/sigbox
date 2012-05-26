@@ -1,11 +1,22 @@
 #mkdir /mnt/nfs
 #mount -t nfs -o nolock,tcp 192.168.1.100:/home/hawk/sigbox/sigbox/project/filesys/ /mnt/nfs
 
+killproc()
+{
+pidof $1
+if [ $? -eq 0 ]
+then
+    killall $1
+fi
+
+
+}
+
 
 ##################################
 #         set environment
 ##################################
-export ROOT=/nand1/root
+export ROOT=/nand2/root
 
 
 
@@ -15,13 +26,21 @@ export ROOT=/nand1/root
 ln -s $ROOT/var/www /var/www
 ln -s $ROOT/etc/dropbear/ /etc/dropbear
 cp $ROOT/etc/passwd /etc
-mkdir /root
+
+if [ ! -e /root ]
+then
+    mkdir /root
+fi
 
 
 ##################################
 #         execute deamon
 ##################################
-killall inetd
+killproc inetd
+killproc syslogd
+killproc thttpd
+killproc dropbear
+
 syslogd
 $ROOT/usr/bin/thttpd -C $ROOT/etc/thttpd.d/thttpd.conf &
 $ROOT/usr/bin/dropbear
