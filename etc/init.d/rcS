@@ -17,8 +17,7 @@ fi
 #         set environment
 ##################################
 export ROOT=/nand2/root
-
-
+export PATH=$PATH:/nand2/root/usr/bin/
 
 ##################################
 #         set file system
@@ -44,3 +43,19 @@ killproc dropbear
 syslogd
 $ROOT/usr/bin/thttpd -C $ROOT/etc/thttpd.d/thttpd.conf &
 $ROOT/usr/bin/dropbear
+
+##################################
+#         set IP addrress
+##################################
+NetworkType=`get_key_value $ROOT/etc/signalBox.conf NetworkType`
+
+cd /var/www
+if [ "$NetworkType" == "dhcp" ]
+then
+    ./setip dhcp
+else
+    IP=`get_key_value $ROOT/etc/signalBox.conf ip`
+    MASK=`get_key_value $ROOT/etc/signalBox.conf mask`
+    GW=`get_key_value $ROOT/etc/signalBox.conf gateway`
+    ./setip fixip,$IP,$GW,$MASK
+fi             
