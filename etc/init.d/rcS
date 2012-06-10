@@ -59,3 +59,8 @@ else
     GW=`get_key_value $ROOT/etc/signalBox.conf gateway`
     ./setip fixip,$IP,$GW,$MASK
 fi             
+
+##################################
+#         start UART service
+##################################
+$ROOT/etc/init.d/listenUART &

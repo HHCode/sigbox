@@ -26,3 +26,14 @@ parse()
 {
 echo "$2" | sed -n "s/^.*$1=\([^&]*\).*$/\1/p" | sed "s/%20/ /g"
 }
+
+
+killproc()
+{
+    pidof $1
+    if [ $? -eq 0 ]
+    then
+        killall $1
+    fi
+}
+    

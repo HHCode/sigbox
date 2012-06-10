@@ -1,0 +1,42 @@
+#!/bin/sh
+
+#
+#setip?ip=fixip,192.168.0.1,255.255.255.0,192.168.0.254
+#
+
+. /var/www/commonScript
+
+
+if [ "$QUERY_STRING" != "" ];
+then
+    head
+    SHELL_CMD=`parse ip $QUERY_STRING`
+else
+    SHELL_CMD=$1
+fi
+
+####################################
+#    Parse TYPE,IP,Gateway,Mask
+####################################
+TYPE=`echo $SHELL_CMD | cut -d',' -f1`
+IP=`echo $SHELL_CMD | cut -d',' -f2`
+GW=`echo $SHELL_CMD | cut -d',' -f3`
+MASK=`echo $SHELL_CMD | cut -d',' -f4`
+
+
+if [ "$SHELL_CMD" == "" ];then
+    echo FAILED
+    echo example:
+    echo http://127.0.0.1/setip?ip=setip?ip=fixip,192.168.0.1,255.255.255.0,192.168.0.254
+else
+    if [ "$TYPE" == "fixip" ]
+    then
+        echo SUCCESS
+        ifconfig eth0 $IP netmask $MASK up
+        route add default gw $GW
+        ifconfig
+    else
+        killproc udhcpc
+        udhcpc
+    fi
+fi
