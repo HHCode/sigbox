@@ -7,7 +7,6 @@ then
     head
 fi
 
-
 IP=`/sbin/ifconfig | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 MASK=`/sbin/ifconfig eth0 | grep "inet addr:" | cut -d':' -f4`
 
@@ -18,6 +17,8 @@ GW=${GW_STR%%/*}
 IF_STR=`/sbin/ifconfig eth0 | grep HWaddr`
 MAC=${IF_STR##*'HWaddr '}
 
+
+echo OK
 echo IP=$IP
 echo MASK=$MASK
 echo GATEWAY=$GW
