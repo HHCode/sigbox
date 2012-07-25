@@ -47,17 +47,22 @@ $ROOT/usr/bin/dropbear
 ##################################
 #         set IP addrress
 ##################################
-NetworkType=`get_key_value $ROOT/etc/signalBox.conf NetworkType`
+NetworkType=`get_key_value $ROOT/etc/network.conf NetworkType`
 
 cd /var/www
-if [ "$NetworkType" == "dhcp" ]
+if [ "$NetworkType" == "fixip" ]
 then
-    ./setip dhcp
+    IP=`get_key_value $ROOT/etc/network.conf ip`
+    MASK=`get_key_value $ROOT/etc/network.conf mask`
+    GW=`get_key_value $ROOT/etc/network.conf gateway`
+
+    echo "ifconfig eth0 $IP netmask $MASK"
+    ifconfig eth0 $IP netmask $MASK
+    
+    echo "route add default gw $GW"
+    route add default gw $GW
 else
-    IP=`get_key_value $ROOT/etc/signalBox.conf ip`
-    MASK=`get_key_value $ROOT/etc/signalBox.conf mask`
-    GW=`get_key_value $ROOT/etc/signalBox.conf gateway`
-    ./setip fixip,$IP,$GW,$MASK
+    udhcpc -qb -s /usr/share/udhcpc/default.script &
 fi             
 
 ##################################

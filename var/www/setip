@@ -35,8 +35,14 @@ else
         ifconfig eth0 $IP netmask $MASK up
         route add default gw $GW
         ifconfig
+        
+        echo "NetworkType=$TYPE" > /nand2/root/etc/network.conf
+        echo "ip=$IP" >> /nand2/root/etc/network.conf 
+        echo "gateway=$GW" >> /nand2/root/etc/network.conf
+        echo "netmask=$MASK" >> /nand2/root/etc/network.conf
+        
     else
         killproc udhcpc
-        udhcpc
+        udhcpc -qb -s /usr/share/udhcpc/default.script &
     fi
 fi
