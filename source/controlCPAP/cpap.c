@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "rs232.h"
 
 #define DEVICE_NAME "/dev/ttyUSB0"
@@ -83,7 +84,6 @@ int main( int argc , char **argv )
 
     printf_debug( "expected value:%d,actually receive:%d\n" , expectedLength , recv_size );
     printf_debug("CPAP:");
-    print_data( buffer , recv_size );
     printf_debug("\n" );
 
 
@@ -98,14 +98,15 @@ int main( int argc , char **argv )
 
     if ( xor_byte != buffer[recv_size-1] )
     {
-        printf("error,xor should be 0x%x,but 0x%x\n" , xor_byte , buffer[recv_size-1] );
+        printf("FAILED\nxor should be 0x%x,but 0x%x\n" , xor_byte , buffer[recv_size-1] );
         exit(1);
     }
     else
     {
-        puts("ok" );
+    	puts("OK");
     }
 
+    print_data( buffer , recv_size );
 
     rs232_close( rs232_descriptor );
 
