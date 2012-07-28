@@ -1,78 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <cpap.h>
 #include "rs232.h"
 
-#define DEVICE_NAME "/dev/ttyUSB0"
-
-#ifdef DEBUG
-#define printf_debug(fmt, args...) printf("%s[%d]: "fmt, __FUNCTION__, __LINE__, ##args)
-#else
-#define printf_debug(fmt, args...)
-#endif
-
-#define printf_error(fmt, args...) fprintf(stderr, "%s[%d]: "fmt, __FUNCTION__, __LINE__, ##args)
-
-
-int main( int argc , char **argv )
+int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int responseBufferLength , int expectedLength )
 {
-    char inputByte;
-    char outputByte;
-    int expectedLength;
-    int rs232_descriptor;
-
-
-    if ( argc > 1 )
-    {
-        expectedLength= atoi( argv[1] );
-    }
-    else
-    {
-        printf_error(  "plz input expect length as argument 1\n" );
-        exit(1);
-    }
-
-
-
-    rs232_descriptor = rs232_open( DEVICE_NAME , 9600 );
-    if ( rs232_descriptor < 0 )
-    {
-        printf_error( "cant open\n"  );
-        exit(1);
-    }
-
-    outputByte = getchar();
-    rs232_write( rs232_descriptor , &outputByte , 1 );
-    inputByte=outputByte;
-    while( inputByte != EOF )
-    {
-        inputByte = getchar();
-        if ( inputByte == '\n' )
-            break;
-        rs232_write( rs232_descriptor , &inputByte , 1 );
-        outputByte ^= inputByte;
-    }
-    rs232_write( rs232_descriptor , &outputByte , 1 );
-    printf_debug("\n" );
-
-
-    unsigned char buffer[1024];
-    int length=sizeof(buffer);
     int recv_size=0;
-    int retry=100;
+    int retry=10;
     int recv_return;
     do
     {
-        recv_return = rs232_recv( rs232_descriptor , (char *)&buffer[recv_size] , length);
+        recv_return = rs232_recv( rs232_descriptor , (char *)&responseBuffer[recv_size] , responseBufferLength-recv_size );
 
         if ( recv_return < 0 )
         {
+            perror( "read rs232 error" );
             exit(1);
         }
 
         recv_size += recv_return;
 
-        if ( retry < 50 )
+        if ( retry < 5 )
             printf("remain %d bytes\n" , expectedLength-recv_size );
 
     }while( retry-- > 0 && recv_size < expectedLength );
@@ -83,34 +32,95 @@ int main( int argc , char **argv )
     }
 
     printf_debug( "expected value:%d,actually receive:%d\n" , expectedLength , recv_size );
-    printf_debug("CPAP:");
-    printf_debug("\n" );
 
+    if ( responseBuffer[0] == 0xe4 )
+    {
+        printf_error( "This is a failed command" );
+        exit(1);
+    }
 
     int index;
     unsigned char xor_byte;
 
-    xor_byte = buffer[0];
+    xor_byte = responseBuffer[0];
     for( index=1; index<recv_size-1 ; index++ )
     {
-        xor_byte ^= buffer[index];
+        xor_byte ^= responseBuffer[index];
     }
 
-    if ( xor_byte != buffer[recv_size-1] )
+    if ( xor_byte != responseBuffer[recv_size-1] )
     {
-        printf("FAILED\nxor should be 0x%x,but 0x%x\n" , xor_byte , buffer[recv_size-1] );
+        printf("FAILED\nxor should be 0x%x,but 0x%x\n" , xor_byte , responseBuffer[recv_size-1] );
         exit(1);
     }
     else
     {
-    	puts("OK");
+        puts("OK");
     }
 
-    print_data( buffer , recv_size );
+    return recv_size;
+}
 
-    rs232_close( rs232_descriptor );
+int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checkedXor )
+{
+    if ( rs232_descriptor < 0 )
+    {
+        printf_error( "cant open\n"  );
+        exit(1);
+    }
 
+    if ( rs232_write( rs232_descriptor , cmd , cmdLength ) == 0 )
+    {
+        perror( "write rs232 error" );
+        exit(1);
+    }
+
+    rs232_write( rs232_descriptor , &checkedXor , 1 );
+    printf( "\n" );
 
     return 0;
 }
+
+char getCheckedXor( char *cmdBuffer , int dataSize )
+{
+    char checkedXor;
+    int bufferIndex;
+
+    checkedXor=cmdBuffer[0];
+
+    for( bufferIndex=1 ; bufferIndex<dataSize ; bufferIndex++ )
+        checkedXor ^= cmdBuffer[bufferIndex];
+
+    return checkedXor;
+}
+
+
+int getCmdFromStdin( char *cmdBuffer , int bufferSize )
+{
+    int intputCount=0;
+    char inputFromStdIn;
+
+
+    do
+    {
+        inputFromStdIn = getchar();
+
+        printf_debug( "get 0x%x\n" , inputFromStdIn );
+
+        if ( inputFromStdIn == '\n' ) break;
+
+        cmdBuffer[intputCount++]=inputFromStdIn;
+
+
+        if (intputCount >= bufferSize )
+        {
+            printf("input too long,should be less then %d\n" , sizeof(cmdBuffer ));
+            exit(1);
+        }
+    }while( inputFromStdIn != '\n' );
+
+    return intputCount;
+}
+
+
 
