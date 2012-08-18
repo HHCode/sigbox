@@ -80,7 +80,7 @@ else
     CPAP_FINAL_PRESSURE_SET )
     	FP_1=`parse FP_1 $QUERY_STRING`
     	FP_2=`parse FP_2 $QUERY_STRING`
-        HEX_CMD="\x5b\x$FP_1\x$FP_2"
+        HEX_CMD="\xc2\x$FP_1\x$FP_2"
         EXPECT_READ=1
         ;;
                         
@@ -93,6 +93,10 @@ else
     CPAP_GET_PRESS )
         HEX_CMD="\xcb"
         EXPECT_READ=5
+        ;;
+    CPAP_SET_PRESS )
+        HEX_CMD="\xcd"
+        EXPECT_READ=4
         
     esac
     echo -e "\x93$HEX_CMD\n" | /nand2/root/usr/bin/controlCPAP $EXPECT_READ
