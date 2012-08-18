@@ -18,14 +18,6 @@ static pthread_t threadFIFO2DA[MAX_CHANNEL];
 static pthread_mutex_t mutexTick[MAX_CHANNEL];
 static pthread_cond_t condTick[MAX_CHANNEL];
 
-typedef enum{
-
-    DA_FROM_CPAP,
-    DA_FROM_HTTP
-
-}DA_SOURCE;
-
-static DA_SOURCE DASource;
 
 int readAChar( int fifoFD )
 {
@@ -128,7 +120,6 @@ void *functionFIFO2DA( void *param )
 
         if ( readSize <=0 )
         {
-            DASource = DA_FROM_CPAP;
             struct timespec remainTime;
             struct timespec sleepTime;
 
@@ -139,15 +130,12 @@ void *functionFIFO2DA( void *param )
             continue;
         }
 
-        DASource = DA_FROM_HTTP;
-
-        printf_debug( "ch%d:" , channel );
+        if ( debug ) printf( "ch%d:" , channel );
         do
         {
             toNullPos = strchr( walkInBuffer , ',');
             if ( toNullPos )
                 *toNullPos=0;
-            printf_debug( "get %s\n", walkInBuffer );
             stringIndex=sscanf( walkInBuffer , "0x%x" , &readInt );
             if ( stringIndex == 0 )
             {
@@ -164,8 +152,7 @@ void *functionFIFO2DA( void *param )
                         break;
                 }
             }
-            printf_debug( "0x%x," , readInt );
-            writeDAC( 0 , readInt );
+            writeDAC( channel , readInt );
             waitTick( channel );
             if ( toNullPos )
                 walkInBuffer=toNullPos+1;
@@ -173,7 +160,7 @@ void *functionFIFO2DA( void *param )
                 break;
 
         }while( strlen(walkInBuffer) );
-        printf_debug( "\n" );
+        if ( debug ) printf( "\n" );
     }
 
 threadError:
@@ -186,7 +173,7 @@ threadError:
 
 
 static const int maxValue[MAX_CHANNEL]={
-    100,
+    120,
     240,
     60,
     30,
@@ -206,10 +193,11 @@ int cpap2psg( int rs232_descriptor , char *cmdBuffer , int cmdSize , char checke
     int responseSize;
     responseSize = recvCPAPResponse( rs232_descriptor , responseBuffer , sizeof(responseBuffer) , expectedLength );
 
-    if ( responseSize == -1 )
+    if ( responseSize < 0  )
     {
-        return -1;
+        return responseSize;
     }
+
 //        print_data( responseBuffer , responseSize );
 
     int adjustedValue;
@@ -245,10 +233,12 @@ int main( int argc , char **argv )
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
     while(1)
     {
-        if ( DASource == DA_FROM_CPAP )
-            cpap2psg( deviceDesc , cmdBuffer , cmdSize , checkedXor );
-        else
-            sleep(1);
+        int err=cpap2psg( deviceDesc , cmdBuffer , cmdSize , checkedXor );
+        if ( err == -2 )
+        {
+            deviceDesc = openCPAPDevice();
+        }
+        sleep(1);
 
         int channel;
         for( channel=0 ; channel<MAX_CHANNEL ; channel++ )

@@ -4,10 +4,34 @@
 #include <cpap.h>
 #include "rs232.h"
 
+
+
+int openCPAPDevice( void )
+{
+    int usbIndex;
+    int rs232_descriptor;
+    for ( usbIndex=0 ; usbIndex<10 ; usbIndex++ )
+    {
+        char deviceName[16];
+        bzero( deviceName , sizeof(deviceName) );
+        sprintf( deviceName , "/dev/ttyUSB%d" , usbIndex );
+        rs232_descriptor = rs232_open( deviceName , 9600 );
+        if ( rs232_descriptor > 0 )
+            return rs232_descriptor;
+        else
+            printf_debug( "open %s error\n" , deviceName );
+    }
+
+    printf_error( "cant open CPAP device\n"  );
+    return -1;
+}
+
+
+
 int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int responseBufferLength , int expectedLength )
 {
     int recv_size=0;
-    int retry=2;
+    int retry=5;
     int recv_return;
     do
     {
@@ -16,7 +40,6 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
         if ( recv_return < 0 )
         {
             perror( "read rs232 error" );
-            return -1;
         }
 
         recv_size += recv_return;
@@ -29,6 +52,7 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
     if ( retry <  0  )
     {
         printf_debug("recv error\n" );
+        return -2;
     }
 
     printf_debug( "expected value:%d,actually receive:%d\n" , expectedLength , recv_size );
@@ -72,7 +96,7 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checked
     }
 
     rs232_write( rs232_descriptor , &checkedXor , 1 );
-    printf_debug( "\n" );
+    if ( debug ) printf( "\n" );
 
     return 0;
 }
@@ -118,23 +142,3 @@ int getCmdFromStdin( char *cmdBuffer , int bufferSize )
     return intputCount;
 }
 
-
-int openCPAPDevice( void )
-{
-    int usbIndex;
-    int rs232_descriptor;
-    for ( usbIndex=0 ; usbIndex<10 ; usbIndex++ )
-    {
-        char deviceName[16];
-        bzero( deviceName , sizeof(deviceName) );
-        sprintf( deviceName , "/dev/ttyUSB%d" , usbIndex );
-        rs232_descriptor = rs232_open( deviceName , 9600 );
-        if ( rs232_descriptor > 0 )
-            return rs232_descriptor;
-        else
-            printf_debug( "open %s error\n" , deviceName );
-    }
-
-    printf_error( "cant open CPAP device\n"  );
-    return -1;
-}
