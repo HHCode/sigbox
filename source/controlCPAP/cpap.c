@@ -26,7 +26,7 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
 
     }while( retry-- > 0 && recv_size < expectedLength );
 
-    if ( retry <= 0  )
+    if ( retry <  0  )
     {
         printf_debug("recv error\n" );
     }
@@ -35,7 +35,7 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
 
     if ( responseBuffer[0] == 0xe4 )
     {
-        printf_error( "This is a invalid command" );
+        printf_error( "This is an invalid command" );
         return -1;
     }
 
@@ -50,12 +50,8 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
 
     if ( xor_byte != responseBuffer[recv_size-1] )
     {
-        printf("FAILED\nxor should be 0x%x,but 0x%x\n" , xor_byte , responseBuffer[recv_size-1] );
+        printf("xor should be 0x%x,but 0x%x\n" , xor_byte , responseBuffer[recv_size-1] );
         return -1;
-    }
-    else
-    {
-        puts("OK");
     }
 
     return recv_size;

@@ -4,8 +4,13 @@
 #include <cpap.h>
 #include <rs232.h>
 
+int debug;
+
 int main( int argc , char **argv )
 {
+
+    if ( access( "/etc/debug" , 0 ) == 0 )
+        debug=1;
 
     int expectedLength;
     char cmdBuffer[128];
@@ -39,8 +44,10 @@ int main( int argc , char **argv )
 
     if ( responseSize >= 0 )
     {
+        puts("OK");
         print_data( responseBuffer , responseSize );
-    }
+    }else
+        puts( "FAILED" );
 
     rs232_close( deviceDesc );
 

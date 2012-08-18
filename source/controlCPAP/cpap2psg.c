@@ -18,6 +18,14 @@ static pthread_t threadFIFO2DA[MAX_CHANNEL];
 static pthread_mutex_t mutexTick[MAX_CHANNEL];
 static pthread_cond_t condTick[MAX_CHANNEL];
 
+typedef enum{
+
+    DA_FROM_CPAP,
+    DA_FROM_HTTP
+
+}DA_SOURCE;
+
+static DA_SOURCE DASource;
 
 int readAChar( int fifoFD )
 {
@@ -120,14 +128,18 @@ void *functionFIFO2DA( void *param )
 
         if ( readSize <=0 )
         {
+            DASource = DA_FROM_CPAP;
             struct timespec remainTime;
             struct timespec sleepTime;
 
             sleepTime.tv_nsec=SAMPLING_DURATION_MS*100000;
             sleepTime.tv_sec=0;
             nanosleep( &sleepTime , &remainTime );
+
             continue;
         }
+
+        DASource = DA_FROM_HTTP;
 
         printf_debug( "ch%d:" , channel );
         do
@@ -171,12 +183,24 @@ threadError:
 }
 
 
+
+
+static const int maxValue[MAX_CHANNEL]={
+    100,
+    240,
+    60,
+    30,
+    30,
+    30
+};
+
+
 int cpap2psg( int rs232_descriptor , char *cmdBuffer , int cmdSize , char checkedXor )
 {
     int expectedLength=5;
 
     if ( sendCPAPCmd( rs232_descriptor , cmdBuffer , cmdSize , checkedXor ) )
-        exit( EXIT_FAILURE );
+        return -1;
 
     unsigned char responseBuffer[1024];
     int responseSize;
@@ -184,22 +208,26 @@ int cpap2psg( int rs232_descriptor , char *cmdBuffer , int cmdSize , char checke
 
     if ( responseSize == -1 )
     {
-        usleep(500000);
         return -1;
     }
 //        print_data( responseBuffer , responseSize );
-    printf("%d\n",responseBuffer[2] );
-    writeDAC( 0 , responseBuffer[2] );
-    usleep(200000);
+
+    int adjustedValue;
+    adjustedValue = (65535.0/maxValue[0])*responseBuffer[2];
+    printf_debug( "cpap:%d -> da:%d\n" , responseBuffer[2] , adjustedValue );
+
+    writeDAC( 0 , adjustedValue );
     return 0;
 }
 
 
 
-
+int debug=0;
 
 int main( int argc , char **argv )
 {
+    if ( access( "/etc/debug" , 0 ) == 0 )
+        debug=1;
 
     int rs232_descriptor;
     char cmdBuffer[2]={ 0x93,0xCB };
@@ -217,14 +245,17 @@ int main( int argc , char **argv )
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
     while(1)
     {
-        //cpap2psg( deviceDesc , cmdBuffer , cmdSize , checkedXor );
+        if ( DASource == DA_FROM_CPAP )
+            cpap2psg( deviceDesc , cmdBuffer , cmdSize , checkedXor );
+        else
+            sleep(1);
+
         int channel;
         for( channel=0 ; channel<MAX_CHANNEL ; channel++ )
         {
             if ( threadFIFO2DA[channel] == 0 )
                 pthread_create( &threadFIFO2DA[channel] ,0 , functionFIFO2DA , (void *)channel );
         }
-        sleep(1);
     }
 
     rs232_close( rs232_descriptor );
