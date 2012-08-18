@@ -25,6 +25,20 @@ export PATH=$PATH:/nand2/root/usr/bin/
 ln -s $ROOT/var/www /var/www
 ln -s $ROOT/etc/dropbear/ /etc/dropbear
 cp $ROOT/etc/passwd /etc
+cp $ROOT/usr/bin/cpap2psg /usr/bin
+
+
+for ch in 0 1 2 3 4 5
+do
+    if [ ! -p /tmp/FIFO_CHANNEL$ch ]
+    then
+        rm -rf /tmp/FIFO_CHANNEL$ch
+        mkfifo -m 777 /tmp/FIFO_CHANNEL$ch
+    fi
+done
+cpap2psg &
+
+
 
 if [ ! -e /root ]
 then
@@ -69,3 +83,5 @@ fi
 #         start UART service
 ##################################
 $ROOT/etc/init.d/listenUART &
+
+telnetd
