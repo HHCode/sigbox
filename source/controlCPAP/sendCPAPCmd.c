@@ -37,7 +37,10 @@ int main( int argc , char **argv )
     int responseSize;
     responseSize = recvCPAPResponse( rs232_descriptor , responseBuffer , sizeof(responseBuffer) , expectedLength );
 
-    print_data( responseBuffer , responseSize );
+    if ( responseSize >= 0 )
+    {
+        print_data( responseBuffer , responseSize );
+    }
 
     rs232_close( rs232_descriptor );
 

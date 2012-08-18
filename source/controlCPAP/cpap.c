@@ -16,7 +16,7 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
         if ( recv_return < 0 )
         {
             perror( "read rs232 error" );
-            exit(1);
+            return -1;
         }
 
         recv_size += recv_return;
@@ -36,7 +36,7 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
     if ( responseBuffer[0] == 0xe4 )
     {
         printf_error( "This is a failed command" );
-        exit(1);
+        return -1;
     }
 
     int index;
@@ -51,7 +51,7 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
     if ( xor_byte != responseBuffer[recv_size-1] )
     {
         printf("FAILED\nxor should be 0x%x,but 0x%x\n" , xor_byte , responseBuffer[recv_size-1] );
-        exit(1);
+        return -1;
     }
     else
     {
@@ -65,18 +65,18 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checked
 {
     if ( rs232_descriptor < 0 )
     {
-        printf_error( "cant open\n"  );
-        exit(1);
+        printf_error( "cant open DA\n"  );
+        return -1;
     }
 
     if ( rs232_write( rs232_descriptor , cmd , cmdLength ) == 0 )
     {
         perror( "write rs232 error" );
-        exit(1);
+        return -1;
     }
 
     rs232_write( rs232_descriptor , &checkedXor , 1 );
-    printf( "\n" );
+    printf_debug( "\n" );
 
     return 0;
 }
