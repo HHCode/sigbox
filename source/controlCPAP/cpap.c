@@ -7,7 +7,7 @@
 int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int responseBufferLength , int expectedLength )
 {
     int recv_size=0;
-    int retry=10;
+    int retry=2;
     int recv_return;
     do
     {
@@ -21,8 +21,8 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
 
         recv_size += recv_return;
 
-        if ( retry < 5 )
-            printf("remain %d bytes\n" , expectedLength-recv_size );
+        if ( retry < 1 )
+            printf_debug("remain %d bytes\n" , expectedLength-recv_size );
 
     }while( retry-- > 0 && recv_size < expectedLength );
 
@@ -35,7 +35,7 @@ int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int
 
     if ( responseBuffer[0] == 0xe4 )
     {
-        printf_error( "This is a failed command" );
+        printf_error( "This is a invalid command" );
         return -1;
     }
 
@@ -65,7 +65,7 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checked
 {
     if ( rs232_descriptor < 0 )
     {
-        printf_error( "cant open DA\n"  );
+        printf_error( "cant open ttyUSB0\n"  );
         return -1;
     }
 
@@ -123,4 +123,22 @@ int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 }
 
 
+int openCPAPDevice( void )
+{
+    int usbIndex;
+    int rs232_descriptor;
+    for ( usbIndex=0 ; usbIndex<10 ; usbIndex++ )
+    {
+        char deviceName[16];
+        bzero( deviceName , sizeof(deviceName) );
+        sprintf( deviceName , "/dev/ttyUSB%d" , usbIndex );
+        rs232_descriptor = rs232_open( deviceName , 9600 );
+        if ( rs232_descriptor > 0 )
+            return rs232_descriptor;
+        else
+            printf_debug( "open %s error\n" , deviceName );
+    }
 
+    printf_error( "cant open CPAP device\n"  );
+    return -1;
+}

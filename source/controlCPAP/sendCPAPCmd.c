@@ -8,7 +8,6 @@ int main( int argc , char **argv )
 {
 
     int expectedLength;
-    int rs232_descriptor;
     char cmdBuffer[128];
 
 
@@ -28,21 +27,22 @@ int main( int argc , char **argv )
 
     checkedXor = getCheckedXor( cmdBuffer , intputCount );
 
-    rs232_descriptor = rs232_open( DEVICE_NAME , 9600 );
+    int deviceDesc;
+    deviceDesc = openCPAPDevice();
 
-
-    sendCPAPCmd( rs232_descriptor , cmdBuffer , intputCount , checkedXor );
+    if ( sendCPAPCmd( deviceDesc , cmdBuffer , intputCount , checkedXor ) )
+        exit(1);
 
     unsigned char responseBuffer[1024];
     int responseSize;
-    responseSize = recvCPAPResponse( rs232_descriptor , responseBuffer , sizeof(responseBuffer) , expectedLength );
+    responseSize = recvCPAPResponse( deviceDesc , responseBuffer , sizeof(responseBuffer) , expectedLength );
 
     if ( responseSize >= 0 )
     {
         print_data( responseBuffer , responseSize );
     }
 
-    rs232_close( rs232_descriptor );
+    rs232_close( deviceDesc );
 
 
     return 0;

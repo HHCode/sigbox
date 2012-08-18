@@ -209,14 +209,15 @@ int main( int argc , char **argv )
 
     initDAC();
 
-    rs232_descriptor = rs232_open( DEVICE_NAME , 9600 );
+    int deviceDesc;
+    deviceDesc = openCPAPDevice();
 
     checkedXor = getCheckedXor( cmdBuffer , cmdSize );
 
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
     while(1)
     {
-        //cpap2psg( rs232_descriptor , cmdBuffer , cmdSize , checkedXor );
+        //cpap2psg( deviceDesc , cmdBuffer , cmdSize , checkedXor );
         int channel;
         for( channel=0 ; channel<MAX_CHANNEL ; channel++ )
         {
