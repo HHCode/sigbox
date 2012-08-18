@@ -25,8 +25,7 @@ export PATH=$PATH:/nand2/root/usr/bin/
 ln -s $ROOT/var/www /var/www
 ln -s $ROOT/etc/dropbear/ /etc/dropbear
 cp $ROOT/etc/passwd /etc
-cp $ROOT/usr/bin/cpap2psg /usr/bin
-
+cp $ROOT/usr/bin/testDA.sh /usr/bin
 
 for ch in 0 1 2 3 4 5
 do
@@ -36,7 +35,7 @@ do
         mkfifo -m 777 /tmp/FIFO_CHANNEL$ch
     fi
 done
-cpap2psg &
+/nand2/root/usr/bin/cpap2psg &
 
 
 
@@ -54,7 +53,7 @@ killproc syslogd
 killproc thttpd
 killproc dropbear
 
-syslogd
+#syslogd
 $ROOT/usr/bin/thttpd -C $ROOT/etc/thttpd.d/thttpd.conf &
 $ROOT/usr/bin/dropbear
 
