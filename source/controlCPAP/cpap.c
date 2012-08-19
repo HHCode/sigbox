@@ -22,7 +22,6 @@ int openCPAPDevice( void )
             printf_debug( "open %s error\n" , deviceName );
     }
 
-    printf_error( "cant open CPAP device\n"  );
     return -1;
 }
 
@@ -85,7 +84,7 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checked
 {
     if ( rs232_descriptor < 0 )
     {
-        printf_error( "cant open ttyUSB0\n"  );
+        printf_error( "Cant find CPAP device\n"  );
         return -1;
     }
 
@@ -115,6 +114,30 @@ char getCheckedXor( char *cmdBuffer , int dataSize )
 }
 
 
+// if != 0, then there is data to be read on stdin
+int getchTimeOut( int timeout )
+{
+    // timeout structure passed into select
+    struct timeval tv;
+    // fd_set passed into select
+    fd_set fds;
+    // Set up the timeout.  here we can wait for 1 second
+    tv.tv_sec = timeout;
+    tv.tv_usec = 0;
+
+    // Zero out the fd_set - make sure it's pristine
+    FD_ZERO(&fds);
+    // Set the FD that we want to read
+    FD_SET(STDIN_FILENO, &fds); //STDIN_FILENO is 0
+    // select takes the last file descriptor value + 1 in the fdset to check,
+    // the fdset for reads, writes, and errors.  We are only passing in reads.
+    // the last parameter is the timeout.  select will return if an FD is ready or
+    // the timeout has occurred
+    select(STDIN_FILENO+1, &fds, NULL, NULL, &tv);
+    // return 0 if STDIN is not ready to be read.
+    return FD_ISSET(STDIN_FILENO, &fds);
+}
+
 int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 {
     int intputCount=0;
@@ -123,6 +146,7 @@ int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 
     do
     {
+        if (getchTimeOut(1)==0) break;
         inputFromStdIn = getchar();
 
         printf_debug( "get 0x%x\n" , inputFromStdIn );
