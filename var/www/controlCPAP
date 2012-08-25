@@ -6,6 +6,14 @@
 
 . /var/www/commonScript
 
+while [ -e /dev/shm/lock ]
+do
+    head
+    echo busy
+    exit 1
+done
+
+touch /dev/shm/lock
 
 if [ "$QUERY_STRING" != "" ];
 then
@@ -95,9 +103,15 @@ else
         EXPECT_READ=5
         ;;
     CPAP_SET_PRESS )
-        HEX_CMD="\xcd"
-        EXPECT_READ=4
-        
+        PV=`parse PV $QUERY_STRING`
+        HEX_CMD="\xcd\x$PV"
+        EXPECT_READ=1
+        ;;
+    CPAP_UART )
+        HEX_CMD=`parse hex $QUERY_STRING`
+        EXPECT_READ=`parse read $QUERY_STRING`
     esac
     echo -e "\x93$HEX_CMD\n" | /nand2/root/usr/bin/controlCPAP $EXPECT_READ
 fi
+
+rm -rf /dev/shm/lock
