@@ -14,6 +14,9 @@ controlCPAP:sendCPAPCmd.c $(OBJS)
 cpapd:cpapd.c dac.c $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
+socket2uart:tcp_server.c rs232.c socket2uart.c
+	$(CC) $(CFLAGS) -o $@ $^
+
 .o:.c
 	$(CC) $(CFLAGS) -o $@ $^
 
