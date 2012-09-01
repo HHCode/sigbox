@@ -25,6 +25,8 @@
 /* Server's port number */
 #define SERVPORT 9527
 
+int port=SERVPORT;
+
 /* Pass in 1 parameter which is either the */
 /* address or host name of the server, or */
 /* set the server name in the #define SERVER ... */
@@ -39,6 +41,17 @@ int main(int argc, char *argv[])
     int totalcnt = 0;
     struct hostent *hostp;
     char data[100] = "This is a test string from client lol!!! ";
+
+    if ( argc == 3)
+    {
+        strncpy( server , argv[1] , sizeof( server ) );
+        port = atoi( argv[2] );
+    }
+    else
+    {
+        printf("example:tcp_client localhost 21\n");
+        exit(1);
+    }
 
     /* The socket() function returns a socket */
     /* descriptor representing an endpoint. */
@@ -55,16 +68,6 @@ int main(int argc, char *argv[])
     }
     else
         printf("Client-socket() OK\n");
-    /*If the server hostname is supplied*/
-    if(argc > 1)
-    {
-        /*Use the supplied argument*/
-        strcpy(server, argv[1]);
-        printf("Connecting to the f***ing %s, port %d ...\n", server, SERVPORT);
-    }
-    else
-        /*Use the default server name or IP*/
-        strcpy(server, SERVER);
 
     memset(&serveraddr, 0x00, sizeof(struct sockaddr_in));
     serveraddr.sin_family = AF_INET;

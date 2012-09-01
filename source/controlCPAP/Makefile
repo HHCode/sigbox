@@ -15,7 +15,7 @@ cpapd:cpapd.c dac.c $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
 socket2uart:tcp_server.c rs232.c socket2uart.c
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
 .o:.c
 	$(CC) $(CFLAGS) -o $@ $^
@@ -24,7 +24,7 @@ all:$(EXE)
 
 clean:
 	rm -rf *.out *.o
-
+	rm socket2uart cpapd controlCPAP
 
 .PHONY : all clean controlCPAP cpapd
 

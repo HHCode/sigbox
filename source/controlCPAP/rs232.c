@@ -64,8 +64,8 @@ int rs232_recv( int handle , char *data , int size )
 	FD_ZERO(&fdest);
     FD_SET(handle, &fdest);
 
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 500000;
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
 
     if ( handle != -1 )
 	{
