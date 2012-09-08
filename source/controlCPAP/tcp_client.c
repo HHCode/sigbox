@@ -27,6 +27,76 @@
 
 int port=SERVPORT;
 
+
+void printData( char *data , int size , char *prefix )
+{
+    char printBuf[2048];
+
+    printf( "%s" , prefix );
+    int index;
+    int stringLength=0;
+    int binaryCount=0;
+    bzero( printBuf , sizeof(printBuf) );
+    for( index=0 ; index<size ; index++ )
+    {
+        unsigned char *testedArray=( char * )data;
+        if ( isprint( testedArray[index] ) )
+        {
+            printBuf[stringLength++] = testedArray[index];
+        }
+        else
+        {
+            if ( testedArray[index] == 0x0d )
+                stringLength += sprintf( &printBuf[stringLength] , "\\r," );
+            else if ( testedArray[index] == 0x0a )
+                stringLength += sprintf( &printBuf[stringLength] , "\\n," );
+            else
+            {
+                stringLength += sprintf( &printBuf[stringLength] , "0x%x," , testedArray[index] );
+                binaryCount++;
+            }
+        }
+#if 0
+        if ( binaryCount > 10 )
+        {
+            strcpy( &printBuf[stringLength] , "..." );
+            break;
+        }
+#endif
+    }
+    printf( "%s\n" , printBuf );
+}
+
+
+int getCmdFromStdin( char *cmdBuffer , int bufferSize )
+{
+    int intputCount=0;
+    char inputFromStdIn;
+
+
+    do
+    {
+        inputFromStdIn = getchar();
+
+    //    printf( "get 0x%x\n" , inputFromStdIn );
+
+        if ( inputFromStdIn == '\n' ) break;
+
+        cmdBuffer[intputCount++]=inputFromStdIn;
+
+
+        if (intputCount >= bufferSize )
+        {
+            printf("input too long,should be less then %d\n" , sizeof(cmdBuffer ));
+            exit(1);
+        }
+    }while( inputFromStdIn != '\n' );
+
+    return intputCount;
+}
+
+
+
 /* Pass in 1 parameter which is either the */
 /* address or host name of the server, or */
 /* set the server name in the #define SERVER ... */
@@ -40,7 +110,6 @@ int main(int argc, char *argv[])
     char temp;
     int totalcnt = 0;
     struct hostent *hostp;
-    char data[100] = "This is a test string from client lol!!! ";
 
     if ( argc == 3)
     {
@@ -52,6 +121,11 @@ int main(int argc, char *argv[])
         printf("example:tcp_client localhost 21\n");
         exit(1);
     }
+
+    int stdin_size;
+    stdin_size = getCmdFromStdin( buffer , sizeof(buffer));
+
+    printData( buffer , stdin_size , "<<<<\n");
 
     /* The socket() function returns a socket */
     /* descriptor representing an endpoint. */
@@ -116,36 +190,31 @@ int main(int argc, char *argv[])
     /* Write() some string to the server. */
     printf("Sending some string to the f***ing %s...\n", server);
 
-    do{
-        int rc;
-        data[0] = getchar();
-        rc = write(sd, &data[0] , 1);
+    rc = write(sd, buffer , stdin_size );
 
-        if(rc < 0)
+    if(rc < 0)
+    {
+        perror("Client-write() error");
+        rc = getsockopt(sd, SOL_SOCKET, SO_ERROR, &temp, &length);
+        if(rc == 0)
         {
-            perror("Client-write() error");
-            rc = getsockopt(sd, SOL_SOCKET, SO_ERROR, &temp, &length);
-            if(rc == 0)
-            {
-                /* Print out the asynchronously received error. */
-                errno = temp;
-                perror("SO_ERROR was");
-            }
-            close(sd);
-            exit(-1);
+            /* Print out the asynchronously received error. */
+            errno = temp;
+            perror("SO_ERROR was");
         }
-        else
-        {
-            printf("Client-write() is OK\n");
-            printf("String successfully sent lol!\n");
-            printf("Waiting the %s to echo back...\n", server);
-        }
-    }while(1);
+        close(sd);
+        exit(-1);
+    }
+    else
+    {
+        printf("Waiting the %s to echo back...\n", server);
+    }
 
-    exit(0);
+
+//    exit(0);
 
     totalcnt = 0;
-    while(totalcnt < BufferLength)
+    while(totalcnt < 7 )
     {
 
         /* Wait for the server to echo the */
@@ -169,8 +238,8 @@ int main(int argc, char *argv[])
             totalcnt += rc;
     }
     printf("Client-read() is OK\n");
-    printf("Echoed data from the f***ing server: %s\n", buffer);
-
+    //printf("Echoed data from the f***ing server: %s\n", buffer);
+    printData( buffer , totalcnt , ">>>>>\n");
     /* When the data has been read, close() */
     /* the socket descriptor. */
     /****************************************/

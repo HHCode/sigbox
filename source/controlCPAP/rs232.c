@@ -64,12 +64,12 @@ int rs232_recv( int handle , char *data , int size )
 	FD_ZERO(&fdest);
     FD_SET(handle, &fdest);
 
-    timeout.tv_sec = 2;
-    timeout.tv_usec = 0;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 500000;
 
     if ( handle != -1 )
 	{
-		int Retry=100;
+        int Retry=5;
 		do{
             err = select(handle+1, &fdest , NULL , NULL, &timeout );
 
@@ -98,9 +98,8 @@ int rs232_recv( int handle , char *data , int size )
 				}
 				else
 					printf("FD_ISSET=0\n");
-			}
-
-			if ( err < 0 )
+            }
+            else if ( err < 0 )
 			{
 				perror("rs232_recv");
                 printf_debug("read error\n");
@@ -109,7 +108,7 @@ int rs232_recv( int handle , char *data , int size )
                     printf_debug("Abort rs232_recv due to retry 100 times error\n");
 					break;
 				}
-			}
+            }
 
 		}while( err < 0 && errno == EINTR );
 

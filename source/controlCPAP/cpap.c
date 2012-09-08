@@ -17,7 +17,10 @@ int openCPAPDevice( void )
         sprintf( deviceName , "/dev/ttyUSB%d" , usbIndex );
         rs232_descriptor = rs232_open( deviceName , 9600 );
         if ( rs232_descriptor > 0 )
+        {
+            printf_debug( "open %s ok\n" , deviceName );
             return rs232_descriptor;
+        }
         else
             printf_debug( "open %s error\n" , deviceName );
     }

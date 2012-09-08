@@ -5,13 +5,15 @@ ifdef DEBUG
     CFLAGS += -DDEBUG
 endif
 
+CFLAGS += -DUNDEAD
+
 
 EXE := cpapd controlCPAP
 
 controlCPAP:sendCPAPCmd.c $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
-cpapd:cpapd.c dac.c $(OBJS)
+cpapd:cpapd.c dac.c socket2uart.c tcp_server.c $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
 socket2uart:tcp_server.c rs232.c socket2uart.c

@@ -92,7 +92,7 @@ int read_socket( int connect_fd , char *buffer )
     else
     {
         printf_error("Server-select() timed out.\n");
-        return -1;
+        return 0;
     }
 
     return ret;
