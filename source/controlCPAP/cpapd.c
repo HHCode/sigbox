@@ -351,6 +351,9 @@ int CPAPSendCommand( int deviceDesc , CPAPCommand *command )
 
     checkedXor = getCheckedXor( command->command_code , command->command_length );
 
+    command->command_code[command->command_length] = checkedXor;
+    command->command_length++;
+
     if ( sendCPAPCmd( deviceDesc , command->command_code , command->command_length , checkedXor ) )
         return -1;
 
@@ -477,7 +480,7 @@ int cpapd( void )
     initDAC();
 
     int deviceDesc;
-//    deviceDesc = open( "./test.txt" , O_RDWR );
+    //deviceDesc = open( "./test.txt" , O_RDWR );
     deviceDesc = openCPAPDevice();
 
     socket_to_uart.uart_fd=deviceDesc;
