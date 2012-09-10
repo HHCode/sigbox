@@ -40,10 +40,6 @@ void *relay_uart_to_socket( void *param )
 
             if ( read_size > 0 )
             {
-                //       buffer[read_size]='\r';
-                //      buffer[read_size+1]='\n';
-
-                //     read_size+=2;
                 if ( debug )
                 {
                     printData( buffer , read_size , "rs232 >> socket\n" );
@@ -86,29 +82,21 @@ int socket2uart( Socket2Uart *socket_to_uart )
 
     char buffer[BUF_SIZE];
 
+    socket_to_uart->relay_thread_handle = -1;
+
     while(1)
     {
         socket_to_uart->connect_fd = start_tcp_server( &socket_to_uart->listen_fd , socket_to_uart->port );
 
-        while( socket_to_uart->uart_fd < 0 )
-        {
-            socket_to_uart->uart_fd = rs232_open( socket_to_uart->uart_name , 9600 );
-            if ( socket_to_uart->uart_fd > 0 )
-            {
-                printf_debug( "open %s ok\n" , socket_to_uart->uart_name );
-                break;
-            }
-            printf_error( "open %s error\n" , socket_to_uart->uart_name );
-            sleep(1);
-        }
-
-        pthread_create( &socket_to_uart->relay_thread_handle , 0 ,  relay_uart_to_socket , socket_to_uart );
+        if ( socket_to_uart->relay_thread_handle != -1 )
+            pthread_create( &socket_to_uart->relay_thread_handle , 0 ,  relay_uart_to_socket , socket_to_uart );
 
         if ( socket_to_uart->connect_fd < 0 )
-            exit(1);
+            printf_error( "the listen socket error\n" );
 
 
         do{
+#ifdef GENIUSTOM_PROTOCOL
             int read_size=0;
             int crlf=-1;
             int total_size=0;
@@ -132,7 +120,7 @@ int socket2uart( Socket2Uart *socket_to_uart )
 
                 if ( debug )
                 {
-                    printData( buffer , total_size , "from socket\n" );
+                    printData( buffer , total_size , "socket >>>\n" );
                 }
 
                 if ( cmd_start_index == -1 )
@@ -159,22 +147,34 @@ int socket2uart( Socket2Uart *socket_to_uart )
 
             int command_size=buffer_index-cmd_start_index;
             memcpy( command , &buffer[cmd_start_index] , command_size );
-
+#else
+            int read_size;
+            read_size = read_socket( socket_to_uart->connect_fd , buffer );
+#endif
+            if ( read_size < 0 )
+                break;
+            else if ( read_size == 0 )
+                continue;
 
             socket2uart_mutex_lock( socket_to_uart );
 
+            if ( debug )
+            {
+                printData( buffer , read_size , "socket >>> uart\n" );
+            }
+
             if ( socket_to_uart->uart_fd >= 0 )
             {
-                if ( debug )
-                {
-                    printData( command , command_size , "socket >> rs232\n" );
-                }
-
-                if ( rs232_write( socket_to_uart->uart_fd , command , command_size ) < 0 )
+                if ( rs232_write( socket_to_uart->uart_fd , buffer , read_size ) < 0 )
                 {
                     perror( "rs232_write" );
                     printf_error( "fd:%d,write to %s error\n" ,  socket_to_uart->uart_fd, socket_to_uart->uart_name );
                 }
+            }
+            else
+            {
+                char *uart_open_failed="FAILED\nCPAP open error\n";
+                write( socket_to_uart->connect_fd , uart_open_failed , strlen(uart_open_failed) );
             }
 
             //note the uart-to-socket thread to read uart

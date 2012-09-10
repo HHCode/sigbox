@@ -55,9 +55,14 @@ int recvCPAPResponse( int rs232_descriptor , char *responseBuffer , int response
     {
         printf_debug("recv error\n" );
         return -2;
-    }
+    } 
 
     printf_debug( "expected value:%d,actually receive:%d\n" , expectedLength , recv_size );
+
+    if ( debug )
+    {
+        printData( responseBuffer , recv_size , "uart >>>\n");
+    }
 
     if ( responseBuffer[0] == 0xe4 )
     {
@@ -97,8 +102,12 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checked
         return -1;
     }
 
+    if ( debug )
+    {
+        printData( cmd , cmdLength , "uart <<<\n");
+    }
+
     rs232_write( rs232_descriptor , &checkedXor , 1 );
-    if ( debug ) printf( "\n" );
 
     return 0;
 }
