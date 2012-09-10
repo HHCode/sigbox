@@ -372,7 +372,7 @@ int cpap2psg( int rs232_descriptor , CPAPCommand *command )
         goto EndOf_cpap2psg;
     }
 
-    if ( debug )
+    if ( debug && command->recv_length > 0 )
         printData( command->recv_buffer , command->recv_length , "uart >>>");
 
     if ( command->output_DA )
@@ -477,6 +477,7 @@ int cpapd( void )
     initDAC();
 
     int deviceDesc;
+//    deviceDesc = open( "./test.txt" , O_RDWR );
     deviceDesc = openCPAPDevice();
 
     socket_to_uart.uart_fd=deviceDesc;

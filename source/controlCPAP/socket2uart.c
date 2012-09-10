@@ -30,49 +30,51 @@ void *relay_uart_to_socket( void *param )
     char buffer[BUF_SIZE];
     int write_size;
     pthread_detach( pthread_self() );
+
     while(1)
     {
-        while(1)
+        pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+        pthread_cond_wait( &socket_to_uart->condSocket2Uart , &socket_to_uart->mutexSocket2Uart );
+        pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+
+        if ( socket_to_uart->connect_fd == -1 )
+            continue;
+
+        printf_debug( "note to read uart[%d]\n" , socket_to_uart->uart_fd );
+
+        read_size = rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) );
+        if ( read_size > 0 )
         {
-            pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
-            pthread_cond_wait( &socket_to_uart->condSocket2Uart , &socket_to_uart->mutexSocket2Uart );
-            pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+            if ( debug )
+            {
+                printf_debug( "uart[%d] <<< socket[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
+                printData( buffer , read_size , "" );
+            }
 
-            if ( socket_to_uart->connect_fd == -1 )
+            write_size = write( socket_to_uart->connect_fd , buffer , read_size );
+
+            if ( write_size < 0 )
+            {
+                close ( socket_to_uart->connect_fd );
+                socket_to_uart->connect_fd = -1;
+                printf_error( "write to socket error\n" );
                 continue;
-
-            read_size = rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) );
-            if ( read_size > 0 )
-            {
-                if ( debug )
-                {
-                    char message[128];
-                    sprintf( message , "rs232[%d] >> socket[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd  );
-                    printData( buffer , read_size , message );
-                }
-
-                write_size = write( socket_to_uart->connect_fd , buffer , read_size );
-
-                if ( write_size < 0 )
-                {
-                    printf_error( "write to socket error\n" );
-                    break;
-                }
-            }
-            else if ( read_size < 0 )
-            {
-                perror( "rs232_read");
-                printf_error( "read from uart error\n"  );
-                break;
-            }
-            else
-            {
-                printf_debug("rs232_recv timeout\n");
             }
         }
-
-        close ( socket_to_uart->connect_fd );
-        socket_to_uart->connect_fd = -1;
+        else if ( read_size < 0 )
+        {
+            perror( "rs232_read");
+            printf_error( "read from uart error\n"  );
+            char *ret_message="rs232 read error\n";
+            write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
+            break;
+        }
+        else
+        {
+            printf_debug("rs232 recv timeout\n");
+            char *ret_message="rs232 recv timeout\n";
+            write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
+        }
     }
 
     return 0;
@@ -87,13 +89,15 @@ int socket2uart( Socket2Uart *socket_to_uart )
 
     socket_to_uart->relay_thread_handle = -1;
     socket_to_uart->listen_fd = -1;
+    pthread_cond_init( &socket_to_uart->condSocket2Uart , 0 );
+    pthread_mutex_init( &socket_to_uart->mutexSocket2Uart , 0);
 
     while(1)
     {
         socket_to_uart->connect_fd = -1;
         socket_to_uart->connect_fd = start_tcp_server( &socket_to_uart->listen_fd , socket_to_uart->port );
 
-        if ( socket_to_uart->relay_thread_handle != -1 )
+        if ( socket_to_uart->relay_thread_handle == -1 )
             pthread_create( &socket_to_uart->relay_thread_handle , 0 ,  relay_uart_to_socket , socket_to_uart );
 
         if ( socket_to_uart->connect_fd < 0 )
@@ -159,35 +163,35 @@ int socket2uart( Socket2Uart *socket_to_uart )
             if ( read_size < 0 )
                 break;
             else if ( read_size == 0 )
-                continue;
+            {
+                printf_debug( "read socket[%d] time out\n" , socket_to_uart->connect_fd );
+                break;
+            }
 
             //empty the rs232 data
             if ( socket_to_uart->uart_fd > 0 )
                 while( rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) ) > 0 );
+            else
+                printf_error( "uart[%d] open failed\n" , socket_to_uart->uart_fd );
 
-            if ( debug )
+            if ( socket_to_uart->uart_fd >= 0 && rs232_write( socket_to_uart->uart_fd , buffer , read_size ) >= 0 )
             {
-                char message[128];
-                sprintf( message , "socket[%d] >>> uart[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd  );
-                printData( buffer , read_size , message );
-            }
 
-            if ( socket_to_uart->uart_fd >= 0 )
-            {
-                if ( rs232_write( socket_to_uart->uart_fd , buffer , read_size ) < 0 )
+                if ( debug )
                 {
-                    perror( "rs232_write" );
-                    printf_error( "fd:%d,write to %s error\n" ,  socket_to_uart->uart_fd, socket_to_uart->uart_name );
+                    printf_debug( "socket[%d] >>> uart[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
+                    printData( buffer , read_size , "" );
                 }
 
                 //note the uart-to-socket thread to read uart
                 pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
                 pthread_cond_signal( &socket_to_uart->condSocket2Uart );
                 pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
-
             }
             else
             {
+                perror( "rs232_write" );
+                printf_error( "fd:%d,write to %s error\n" ,  socket_to_uart->uart_fd, socket_to_uart->uart_name );
                 char *uart_open_failed="FAILED\nCPAP open error\n";
                 write( socket_to_uart->connect_fd , uart_open_failed , strlen(uart_open_failed) );
             }
@@ -195,6 +199,7 @@ int socket2uart( Socket2Uart *socket_to_uart )
         }while(1);
 
         close( socket_to_uart->connect_fd );
+        printf_debug( "close socket[%d]\n" , socket_to_uart->connect_fd );
     }
 }
 #if 0

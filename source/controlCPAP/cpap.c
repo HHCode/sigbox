@@ -55,34 +55,36 @@ int recvCPAPResponse( int rs232_descriptor , char *responseBuffer , int response
     {
         printf_debug("recv error\n" );
         return -2;
-    } 
-
-    printf_debug( "expected value:%d,actually receive:%d\n" , expectedLength , recv_size );
-
-    if ( debug )
-    {
-        printData( responseBuffer , recv_size , "uart >>>\n");
     }
-
-    if ( responseBuffer[0] == 0xe4 )
+    else if ( recv_size > 0)
     {
-        printf_error( "This is an invalid command" );
-        return -1;
-    }
+        printf_debug( "expected value:%d,actually receive:%d\n" , expectedLength , recv_size );
 
-    int index;
-    unsigned char xor_byte;
+        if ( expectedLength > 0 && debug )
+        {
+            printData( responseBuffer , recv_size , "uart >>>");
+        }
 
-    xor_byte = responseBuffer[0];
-    for( index=1; index<recv_size-1 ; index++ )
-    {
-        xor_byte ^= responseBuffer[index];
-    }
+        if ( responseBuffer[0] == 0xe4 )
+        {
+            printf_error( "This is an invalid command" );
+            return -1;
+        }
 
-    if ( xor_byte != responseBuffer[recv_size-1] )
-    {
-        printf("xor should be 0x%x,but 0x%x\n" , xor_byte , responseBuffer[recv_size-1] );
-        return -1;
+        int index;
+        unsigned char xor_byte;
+
+        xor_byte = responseBuffer[0];
+        for( index=1; index<recv_size-1 ; index++ )
+        {
+            xor_byte ^= responseBuffer[index];
+        }
+
+        if ( xor_byte != responseBuffer[recv_size-1] )
+        {
+            printf("xor should be 0x%x,but 0x%x\n" , xor_byte , responseBuffer[recv_size-1] );
+            return -1;
+        }
     }
 
     return recv_size;
