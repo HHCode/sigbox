@@ -8,49 +8,9 @@
 #include <pthread.h>
 #include "socket2uart.h"
 #include "common.h"
+#include "ctype.h"
 #define BUF_SIZE 1024
 #define SERVPORT 9527
-
-
-
-void printData( char *data , int size , char *prefix )
-{
-    char printBuf[2048];
-
-    printf( "%s" , prefix );
-    int index;
-    int stringLength=0;
-    int binaryCount=0;
-    bzero( printBuf , sizeof(printBuf) );
-    for( index=0 ; index<size ; index++ )
-    {
-        unsigned char *testedArray=( char * )data;
-        if ( isprint( testedArray[index] ) )
-        {
-            printBuf[stringLength++] = testedArray[index];
-        }
-        else
-        {
-            if ( testedArray[index] == 0x0d )
-                stringLength += sprintf( &printBuf[stringLength] , "\\r," );
-            else if ( testedArray[index] == 0x0a )
-                stringLength += sprintf( &printBuf[stringLength] , "\\n," );
-            else
-            {
-                stringLength += sprintf( &printBuf[stringLength] , "0x%x," , testedArray[index] );
-                binaryCount++;
-            }
-        }
-#if 0
-        if ( binaryCount > 10 )
-        {
-            strcpy( &printBuf[stringLength] , "..." );
-            break;
-        }
-#endif
-    }
-    printf( "%s\n" , printBuf );
-}
 
 int socket2uart_mutex_lock( Socket2Uart *socket_to_uart )
 {
@@ -229,8 +189,9 @@ int socket2uart( Socket2Uart *socket_to_uart )
         socket_to_uart->uart_fd=-1;
     }
 }
-
+#if 0
 static Socket2Uart *socket_to_uart_standalone;
+
 
 static void handler(int sig)
 {
@@ -247,8 +208,6 @@ static void handler(int sig)
     }
 }
 
-
-#if 0
 int main( int argc , char **argv )
 {
     socket_to_uart_standalone = malloc( sizeof( Socket2Uart ) );

@@ -33,6 +33,98 @@ static Socket2Uart socket_to_uart;
 
 
 
+typedef enum{
+
+    APAP_PRESSURE,
+    CPAP_PRESSURE,
+    PAITENT_FLOW,
+    LEAK,
+    RAMP,
+    PVA,
+    NUM_OF_COMMAND
+
+}PERIODIC_COMMAND;
+
+
+typedef struct {
+    PERIODIC_COMMAND command_number;
+    char    name[32];
+    char    command_code[16];
+    int     command_length;
+
+    char    recv_buffer[1024];
+    int     recv_length;
+    int     expected_recv_length;        //the received data length ,not the buffer length
+
+    char    output_DA;          //channel number,ascii code
+    int     max_value;
+    int     value_in_recv_buffer;
+}CPAPCommand;
+
+/*-----------output to DA-----------
+A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
+B Patient Flow -120 to 120 L/min -1 to 1V DC
+C Leak 0 to 60 L/min 0 to 1V DC
+D Inspiration set pressure 0 to 30 cm H2O 0 to 1V DC
+E Expiration set pressure 0 to 30 cm H2O 0 to 1V DC
+F Minute Ventilation 0 to 30 L 0 to 1V DC
+*/
+static CPAPCommand command_list[NUM_OF_COMMAND]=
+{
+    {
+        command_number:0,
+        name:"APAP Pressure",           //A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
+        command_code:{0x93 , 0xd2},
+        command_length:2,
+        recv_length:5,                  //include xor
+        output_DA:'0',
+        max_value:30
+
+    },
+    {
+        command_number:1,
+        name:"CPAP Pressure",           //A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
+        command_code:{0x93 , 0xcb},
+        command_length:2,
+        recv_length:7,
+        output_DA:'0',
+        max_value:30
+    },
+    {
+        command_number:2,
+        name:"Patient Flow",            //B Patient Flow -120 to 120 L/min -1 to 1V DC
+        command_code:{0x93 , 0xd2},
+        command_length:2,
+        recv_length:5,
+        output_DA:'1',
+        max_value:240
+    },
+    {
+        command_number:3,
+        name:"Leak",                    //C Leak 0 to 60 L/min 0 to 1V DC
+        command_code:{0x93 , 0xcf},
+        command_length:2,
+        recv_length:7,
+        output_DA:'2',
+        max_value:60
+    },
+    {
+        command_number:4,
+        name:"Ramp Time",
+        command_code:{0x93 , 0xd5},
+        command_length:2,
+        recv_length:7
+    },
+    {
+        command_number:5,
+        name:"PVA",
+        command_code:{0x93 , 0xd6},
+        command_length:5,
+        recv_length:1
+    }
+
+
+};
 
 int readAChar( int fifoFD )
 {
@@ -216,47 +308,85 @@ void *functionFIFO2DA( void *param )
 
 
 
+int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buffer )
+{
+    int adjuested_value;
 
-static const int maxValue[MAX_CHANNEL]={
-    120,
-    240,
-    60,
-    30,
-    30,
-    30
-};
+    switch( command_number )
+    {
+    case APAP_PRESSURE:
+        adjuested_value = (65535.0 / max_value )*recv_buffer[2];
+        break;
+
+    case CPAP_PRESSURE:
+        adjuested_value = (65535.0 / max_value )*recv_buffer[2];
+        break;
+
+    case PAITENT_FLOW:
+    {
+        char low=recv_buffer[2];
+        char hight=recv_buffer[3];
+        adjuested_value = (65535.0 / max_value )*( hight << 8 | low ) ;
+        break;
+    }
+    case LEAK:
+    {
+        char low=recv_buffer[2];
+        char hight=recv_buffer[3];
+        adjuested_value = (65535.0 / max_value )*( hight << 8 | low ) ;
+        break;
+    }
+    default:
+        break;
+    }
 
 
-int cpap2psg( int rs232_descriptor , char *cmdBuffer , int cmdSize , char checkedXor )
+    return adjuested_value;
+}
+
+
+int CPAPSendCommand( int deviceDesc , CPAPCommand *command )
+{
+    char checkedXor;
+
+    checkedXor = getCheckedXor( command->command_code , command->command_length );
+
+    if ( sendCPAPCmd( deviceDesc , command->command_code , command->command_length , checkedXor ) )
+        return -1;
+
+    int responseSize;
+    responseSize = recvCPAPResponse( deviceDesc , command->recv_buffer , sizeof( command->recv_buffer ) , command->expected_recv_length );
+
+    return responseSize;
+}
+
+int cpap2psg( int rs232_descriptor , CPAPCommand *command )
 {
     int ret=0;
-    int expectedLength=5;
 
-    if ( sendCPAPCmd( rs232_descriptor , cmdBuffer , cmdSize , checkedXor ) )
+    command->recv_length = CPAPSendCommand( rs232_descriptor , command );
+
+    if ( command->recv_length < 0  )
     {
-        ret = -1;
+        ret= command->recv_length;
         goto EndOf_cpap2psg;
     }
 
-    unsigned char responseBuffer[1024];
-    int responseSize;
-    responseSize = recvCPAPResponse( rs232_descriptor , responseBuffer , sizeof(responseBuffer) , expectedLength );
+    if ( debug )
+        printData( command->recv_buffer , command->recv_length , "uart >>>");
 
-    if ( responseSize < 0  )
+    if ( command->output_DA )
     {
-        ret= responseSize;
-        goto EndOf_cpap2psg;
+        int adjustedValue;
+        adjustedValue = GetDAValue( command->command_number , command->max_value , command->recv_buffer );
+        printf_debug( "%s >> DA: %d\n" , command->name , adjustedValue );
     }
-//        print_data( responseBuffer , responseSize );
-    int adjustedValue;
-    adjustedValue = (65535.0/maxValue[0])*responseBuffer[2];
-    printf_debug( "cpap:%d -> da:%d\n" , responseBuffer[2] , adjustedValue );
 
 EndOf_cpap2psg:
     return ret;
 }
 
-int GetCommandFromFIFO( int fifoFD , char *command_buffer , int buffer_size , int *hex_cmd_size , int *expected_length )
+int GetCommandFromFIFO( int fifoFD , char *command_code , int buffer_size , int *hex_cmd_size , int *expected_length )
 {
     int read_size=0;
     int index=0;
@@ -290,8 +420,8 @@ int GetCommandFromFIFO( int fifoFD , char *command_buffer , int buffer_size , in
 
         for( hex_cmd_index=0 ; hex_cmd_index < *hex_cmd_size ; hex_cmd_index++ )
         {
-            command_buffer[hex_cmd_index] = hex_cmd[hex_cmd_index];
-            printf_debug( "[%d],0x%x\n" , hex_cmd_index , command_buffer[hex_cmd_index] );
+            command_code[hex_cmd_index] = hex_cmd[hex_cmd_index];
+            printf_debug( "[%d],0x%x\n" , hex_cmd_index , command_code[hex_cmd_index] );
         }
     }
     else
@@ -304,28 +434,6 @@ int GetCommandFromFIFO( int fifoFD , char *command_buffer , int buffer_size , in
 }
 
 
-int CPAPSendCommand( int deviceDesc , char *command_buffer , int command_size , int expectedLength )
-{
-    char checkedXor;
-
-    checkedXor = getCheckedXor( command_buffer , command_size );
-
-    if ( sendCPAPCmd( deviceDesc , command_buffer , command_size , checkedXor ) )
-        return -1;
-
-    unsigned char responseBuffer[1024];
-    int responseSize;
-    responseSize = recvCPAPResponse( deviceDesc , responseBuffer , sizeof(responseBuffer) , expectedLength );
-
-    if ( responseSize >= 0 )
-    {
-        puts("OK");
-        print_data( responseBuffer , responseSize );
-        return 0;
-    }else
-        puts( "FAILED" );
-        return -1;
-}
 
 void *functionSocket2Uart( void *param )
 {
@@ -336,24 +444,42 @@ void *functionSocket2Uart( void *param )
 }
 
 
+
+
+int ExecuteSeriesCommand( int *rs232_descriptor )
+{
+    int command_index;
+    int is_CPAP_mode=0;
+    for( command_index=0 ; command_index<NUM_OF_COMMAND ; command_index++ )
+    {
+        //choose one of mode
+        if ( is_CPAP_mode && command_index == APAP_PRESSURE )
+            continue;
+
+        if ( is_CPAP_mode==0 && command_index == CPAP_PRESSURE )
+            continue;
+
+        int err;
+        err=cpap2psg( *rs232_descriptor , &command_list[command_index] );
+        if ( err == -2 )
+        {
+            close( *rs232_descriptor );
+            *rs232_descriptor = openCPAPDevice();
+        }
+    }
+
+    return 0;
+}
+
 int cpapd( void )
 {
-
     int rs232_descriptor;
-//    char cmdBuffer[2]={ 0x93,0xCB };
-    char cmdBuffer[2]={ 0x93,0xD2 };
-
-    int cmdSize=sizeof(cmdBuffer);
-    int checkedXor;
-
     initDAC();
 
     int deviceDesc;
     deviceDesc = openCPAPDevice();
 
     socket_to_uart.uart_fd=deviceDesc;
-
-    checkedXor = getCheckedXor( cmdBuffer , cmdSize );
 
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
 
@@ -362,13 +488,9 @@ int cpapd( void )
     while(1)
     {
         socket2uart_mutex_lock( &socket_to_uart );
-        int err=cpap2psg( deviceDesc , cmdBuffer , cmdSize , checkedXor );
+        ExecuteSeriesCommand( &deviceDesc );
         socket2uart_mutex_unlock( &socket_to_uart );
-        if ( err == -2 )
-        {
-            close( deviceDesc );
-            deviceDesc = openCPAPDevice();
-        }
+
 
         int channel;
         for( channel=0 ; channel<MAX_CHANNEL ; channel++ )

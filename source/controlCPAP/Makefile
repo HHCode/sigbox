@@ -1,4 +1,4 @@
-OBJS := cpap.o rs232.o
+OBJS := cpap.o rs232.o common.o
 
 CFLAGS=-g  -Wall -I./
 ifdef DEBUG

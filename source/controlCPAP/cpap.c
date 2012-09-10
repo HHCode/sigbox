@@ -30,7 +30,7 @@ int openCPAPDevice( void )
 
 
 
-int recvCPAPResponse( int rs232_descriptor , unsigned char *responseBuffer , int responseBufferLength , int expectedLength )
+int recvCPAPResponse( int rs232_descriptor , char *responseBuffer , int responseBufferLength , int expectedLength )
 {
     int recv_size=0;
     int retry=5;
