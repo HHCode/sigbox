@@ -105,76 +105,80 @@ int start_tcp_server( int *listen_fd , int port )
     int on = 1;
     struct sockaddr_in serveraddr;
     struct sockaddr_in their_addr;
-    /* The socket() function returns a socket descriptor */
-    /* representing an endpoint. The statement also */
-    /* identifies that the INET (Internet Protocol) */
-    /* address family with the TCP transport (SOCK_STREAM) */
-    /* will be used for this socket. */
-    /************************************************/
-    /* Get a socket descriptor */
-    if((*listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+
+    if ( *listen_fd == -1 )
     {
-        perror("Server-socket() error");
-        /* Just exit */
-        return -1;
+        /* The socket() function returns a socket descriptor */
+        /* representing an endpoint. The statement also */
+        /* identifies that the INET (Internet Protocol) */
+        /* address family with the TCP transport (SOCK_STREAM) */
+        /* will be used for this socket. */
+        /************************************************/
+        /* Get a socket descriptor */
+        if((*listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        {
+            perror("Server-socket() error");
+            /* Just exit */
+            return -1;
+        }
+        else
+            printf_debug("Server-socket() is OK\n");
+
+        /* The setsockopt() function is used to allow */
+        /* the local address to be reused when the server */
+        /* is restarted before the required wait time */
+        /* expires. */
+        /***********************************************/
+        /* Allow socket descriptor to be reusable */
+        if((ret = setsockopt(*listen_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on))) < 0)
+        {
+            perror("Server-setsockopt() error");
+            close(*listen_fd);
+            return -1;
+        }
+        else
+            printf_debug("Server-setsockopt() is OK\n");
+
+        /* bind to an address */
+        memset(&serveraddr, 0x00, sizeof(struct sockaddr_in));
+        serveraddr.sin_family = AF_INET;
+        serveraddr.sin_port = htons(port);
+        serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+        printf_debug( "Using %s, listening at %d\n", (char *)inet_ntoa(serveraddr.sin_addr), port );
+
+        /* After the socket descriptor is created, a bind() */
+        /* function gets a unique name for the socket. */
+        /* In this example, the user sets the */
+        /* s_addr to zero, which allows the system to */
+        /* connect to any client that used port 3005. */
+        if((ret = bind(*listen_fd, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0)
+        {
+            perror("Server-bind() error");
+            /* Close the socket descriptor */
+            close(*listen_fd);
+            /* and just exit */
+            return -1;
+        }
+        else
+            printf_debug("Server-bind() is OK\n");
+
+        /* The listen() function allows the server to accept */
+        /* incoming client connections. In this example, */
+        /* the backlog is set to 10. This means that the */
+        /* system can queue up to 10 connection requests before */
+        /* the system starts rejecting incoming requests.*/
+        /*************************************************/
+        /* Up to 10 clients can be queued */
+        if((ret = listen(*listen_fd, 10)) < 0)
+        {
+            perror("Server-listen() error");
+            close(*listen_fd);
+            return -1;
+        }
+        else
+            printf_debug("Server-Ready for client connection...\n");
     }
-    else
-        printf_debug("Server-socket() is OK\n");
-
-    /* The setsockopt() function is used to allow */
-    /* the local address to be reused when the server */
-    /* is restarted before the required wait time */
-    /* expires. */
-    /***********************************************/
-    /* Allow socket descriptor to be reusable */
-    if((ret = setsockopt(*listen_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on))) < 0)
-    {
-        perror("Server-setsockopt() error");
-        close(*listen_fd);
-        return -1;
-    }
-    else
-        printf_debug("Server-setsockopt() is OK\n");
-
-    /* bind to an address */
-    memset(&serveraddr, 0x00, sizeof(struct sockaddr_in));
-    serveraddr.sin_family = AF_INET;
-    serveraddr.sin_port = htons(port);
-    serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    printf_debug( "Using %s, listening at %d\n", (char *)inet_ntoa(serveraddr.sin_addr), port );
-
-    /* After the socket descriptor is created, a bind() */
-    /* function gets a unique name for the socket. */
-    /* In this example, the user sets the */
-    /* s_addr to zero, which allows the system to */
-    /* connect to any client that used port 3005. */
-    if((ret = bind(*listen_fd, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0)
-    {
-        perror("Server-bind() error");
-        /* Close the socket descriptor */
-        close(*listen_fd);
-        /* and just exit */
-        return -1;
-    }
-    else
-        printf_debug("Server-bind() is OK\n");
-
-    /* The listen() function allows the server to accept */
-    /* incoming client connections. In this example, */
-    /* the backlog is set to 10. This means that the */
-    /* system can queue up to 10 connection requests before */
-    /* the system starts rejecting incoming requests.*/
-    /*************************************************/
-    /* Up to 10 clients can be queued */
-    if((ret = listen(*listen_fd, 10)) < 0)
-    {
-        perror("Server-listen() error");
-        close(*listen_fd);
-        return -1;
-    }
-    else
-        printf_debug("Server-Ready for client connection...\n");
 
     /* The server will accept a connection request */
     /* with this accept() function, provided the */

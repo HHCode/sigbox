@@ -487,10 +487,8 @@ int cpapd( void )
 
     while(1)
     {
-        socket2uart_mutex_lock( &socket_to_uart );
-        ExecuteSeriesCommand( &deviceDesc );
-        socket2uart_mutex_unlock( &socket_to_uart );
-
+        if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
+            ExecuteSeriesCommand( &deviceDesc );
 
         int channel;
         for( channel=0 ; channel<MAX_CHANNEL ; channel++ )
