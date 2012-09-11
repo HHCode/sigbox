@@ -65,11 +65,11 @@ int rs232_recv( int handle , char *data , int size )
     FD_SET(handle, &fdest);
 
     timeout.tv_sec = 0;
-    timeout.tv_usec = 500000;
+    timeout.tv_usec = 10000;
 
     if ( handle != -1 )
 	{
-        int Retry=5;
+        int Retry=100;
 		do{
             err = select(handle+1, &fdest , NULL , NULL, &timeout );
 

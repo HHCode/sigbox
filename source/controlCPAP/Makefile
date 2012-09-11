@@ -5,7 +5,7 @@ ifdef DEBUG
     CFLAGS += -DDEBUG
 endif
 
-CFLAGS += -DUNDEAD
+#CFLAGS += -DUNDEAD
 
 
 EXE := cpapd controlCPAP

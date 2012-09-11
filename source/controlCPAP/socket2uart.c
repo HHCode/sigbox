@@ -112,9 +112,6 @@ void *relay_uart_to_socket( void *param )
 
 int socket2uart( Socket2Uart *socket_to_uart )
 {
-    if ( access( "/etc/debug" , 0 ) == 0 )
-        debug=1;
-
     char buffer[BUF_SIZE];
 
     socket_to_uart->relay_thread_handle = -1;

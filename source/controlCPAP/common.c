@@ -13,7 +13,9 @@ void printData( char *data , int size , char *prefix )
     bzero( printBuf , sizeof(printBuf) );
     for( index=0 ; index<size ; index++ )
     {
+
         unsigned char *testedArray=( unsigned char * )data;
+#if 0
         if ( isprint( testedArray[index] ) )
         {
             printBuf[stringLength++] = testedArray[index];
@@ -30,6 +32,10 @@ void printData( char *data , int size , char *prefix )
                 binaryCount++;
             }
         }
+#else
+        stringLength += sprintf( &printBuf[stringLength] , "0x%x," , testedArray[index] );
+        binaryCount++;
+#endif
 #if 0
         if ( binaryCount > 10 )
         {

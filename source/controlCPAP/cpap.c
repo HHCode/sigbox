@@ -18,27 +18,24 @@ typedef struct{
 typedef struct{
 
     UartID uart_id[TEST_UART_NUMBER];
-    int inuse_uart_index;
 
 }cpapGlobal;
 
-static cpapGlobal cpap_global={
-    inuse_uart_index:-1
-};
+static cpapGlobal cpap_global;
 
 
 
 
-int CPAP_SendCommand( int deviceDesc , char *command_code , int command_length , char *recv_buffer , int recv_buffer_length , int expected_recv_length )
+int CPAP_SendCommand( int deviceDesc , char *command_code , int command_length , uint8_t *recv_buffer , int recv_buffer_length , int expected_recv_length )
 {
     char checkedXor;
 
     checkedXor = getCheckedXor( command_code , command_length );
 
-    command_code[command_length] = checkedXor;
+    command_code[command_length]=checkedXor;
     command_length++;
 
-    if ( sendCPAPCmd( deviceDesc , command_code , command_length , checkedXor ) )
+    if ( sendCPAPCmd( deviceDesc , command_code , command_length ) )
         return -1;
 
     int responseSize;
@@ -49,32 +46,35 @@ int CPAP_SendCommand( int deviceDesc , char *command_code , int command_length ,
 
 int GetCPAPDescriptor( void )
 {
-    if ( cpap_global.inuse_uart_index > 0 )
-        return cpap_global.uart_id[cpap_global.inuse_uart_index].descriptor;
-    else
-        return 0;
+    int uartIndex;
+    for ( uartIndex=0 ; uartIndex<TEST_UART_NUMBER ; uartIndex++ )
+    {
+        if ( cpap_global.uart_id[uartIndex].descriptor >= 0 )
+            return cpap_global.uart_id[uartIndex].descriptor;
+    }
+
+    return -1;
 }
 
 void *functionTestUART( void *param )
 {
-    int uart_id_index=*(int *)param;
-    char command_code[2]={0x93,0xaa};
+    int uart_id_index=(int)param;
+    char command_code[32]={0x93,0xaa};
     UartID *uart_id = &cpap_global.uart_id[uart_id_index];
-    char recv_buffer[128];
+    uint8_t recv_buffer[128];
 
-    pthread_detach( pthread_self() );
+   // pthread_detach( pthread_self() );
     if ( CPAP_SendCommand( uart_id->descriptor , command_code , 2 , recv_buffer , sizeof( recv_buffer ) , 4 ) )
     {
         if ( recv_buffer[0] == 0x93 && recv_buffer[1] == 0xaa )
         {
-            cpap_global.inuse_uart_index = uart_id_index;
-            printf_debug("use uart %s , fd=%d\n" , uart_id->deviceName , uart_id->descriptor );
+            printf_debug("use uart %s , uart_id[%d].descriptor=%d\n" , uart_id->deviceName , uart_id_index , uart_id->descriptor );
         }
         else
         {
-            cpap_global.inuse_uart_index=-1;
             printf_debug("close uart %s doesnt echo\n" , uart_id->deviceName );
             rs232_close( uart_id->descriptor );
+            uart_id->descriptor = -1;
         }
     }
 
@@ -86,9 +86,11 @@ int openCPAPDevice( void )
 {
     int uartIndex;
     int rs232_descriptor;
-    pthread_t threadTestUART;
+    pthread_t threadTestUART[TEST_UART_NUMBER];
+
     for ( uartIndex=0 ; uartIndex<TEST_UART_NUMBER ; uartIndex++ )
     {
+        threadTestUART[uartIndex] = -1;
         char *deviceName = cpap_global.uart_id[uartIndex].deviceName;
 
         bzero( deviceName , sizeof(deviceName) );
@@ -99,8 +101,8 @@ int openCPAPDevice( void )
         {
             printf_debug( "open %s ok\n" , deviceName );
             cpap_global.uart_id[uartIndex].descriptor=rs232_descriptor;
-            pthread_create( &threadTestUART , 0 , functionTestUART , (void *)uartIndex );
-            return cpap_global.uart_id[uartIndex].descriptor;
+            pthread_create( &threadTestUART[uartIndex] , 0 , functionTestUART , (void *)uartIndex );
+            continue;
         }
         else
         {
@@ -109,16 +111,36 @@ int openCPAPDevice( void )
         }
     }
 
-    return -1;
+    for ( uartIndex=0 ; uartIndex<TEST_UART_NUMBER ; uartIndex++ )
+    {
+        if ( threadTestUART[uartIndex] != -1 )
+            pthread_join( threadTestUART[uartIndex] , 0 );
+    }
+
+    printf("use descriptor:%d\n", GetCPAPDescriptor() );
+    return GetCPAPDescriptor();
 }
 
+int isErrorCode( uint8_t test_byte )
+{
 
+    if (( test_byte & 0xe0 ) == 0xe0 )
+    {
+        printf_error( "error code is 0x%x\n" , test_byte );
+        return 1;
+    }
+    return 0;
+}
 
-int recvCPAPResponse( int rs232_descriptor , char *responseBuffer , int responseBufferLength , int expectedLength )
+int recvCPAPResponse( int rs232_descriptor , uint8_t *responseBuffer , int responseBufferLength , int expectedLength )
 {
     int recv_size=0;
-    int retry=5;
+    int retry=10;
     int recv_return;
+    uint8_t *x93=0;
+    int valid_length=0;
+    int index;
+    uint8_t error_code=0;
     do
     {
         recv_return = rs232_recv( rs232_descriptor , (char *)&responseBuffer[recv_size] , responseBufferLength-recv_size );
@@ -126,55 +148,89 @@ int recvCPAPResponse( int rs232_descriptor , char *responseBuffer , int response
         if ( recv_return < 0 )
         {
             perror( "read rs232 error" );
+            break;
         }
 
         recv_size += recv_return;
 
+        if ( recv_return > 0 && debug )
+        {
+            char message[32];
+            sprintf( message , "uart(%d) >>>\n" , rs232_descriptor );
+            printData( (char *)responseBuffer , recv_size , message );
+        }
+
+        if ( isErrorCode( responseBuffer[0] ) )
+        {
+            valid_length=1;
+            error_code=responseBuffer[0];
+            break;
+        }
+
+
+        if ( x93 == 0 )
+        {
+            for( index=0 ; index<recv_size ; index++ )
+            {
+                if (responseBuffer[index] == 0x93)
+                {
+                    x93 = &responseBuffer[index];
+                    printf_debug("find 0x93 at responseBuffer[%d]\n" , ( x93 - responseBuffer ) );
+                }
+            }
+        }
+        else
+        {
+            valid_length = recv_size - ( x93 - responseBuffer );
+        }
+
+
+
         if ( retry < 1 )
-            printf_debug("remain %d bytes\n" , expectedLength-recv_size );
+            printf_debug("remain %d bytes\n" , expectedLength-valid_length );
 
-    }while( retry-- > 0 && recv_size < expectedLength );
+    }while( retry-- > 0 && valid_length < expectedLength );
 
-    if ( retry <  0  )
+    if ( recv_size <  0  )
     {
         printf_debug("recv error\n" );
         return READ_UART_ERROR;
     }
+    else if ( retry < 0 )
+    {
+        printf_debug("cant find 0x93\n"  );
+        return -1;
+    }
     else if ( recv_size > 0)
     {
-        printf_debug( "expected value:%d,actually receive:%d\n" , expectedLength , recv_size );
-
-        if ( expectedLength > 0 && debug )
+        if ( error_code == 0 )
         {
-            printData( responseBuffer , recv_size , "uart >>>");
-        }
+            printf_debug( "fd:%d,expected value:%d,actually receive:%d\n" , rs232_descriptor ,  expectedLength , recv_size );
 
-        if ( responseBuffer[0] == 0xe4 )
-        {
-            printf_error( "This is an invalid command" );
-            return -1;
-        }
+            int index;
+            uint8_t xor_byte;
 
-        int index;
-        unsigned char xor_byte;
+            xor_byte = x93[0];
+            for( index=1; index< expectedLength-1 ; index++ )
+            {
+                xor_byte ^= x93[index];
+            }
 
-        xor_byte = responseBuffer[0];
-        for( index=1; index<recv_size-1 ; index++ )
-        {
-            xor_byte ^= responseBuffer[index];
-        }
+            if ( xor_byte != x93[expectedLength-1] )
+            {
+                printf("xor should be 0x%x,but 0x%x\n" , xor_byte , x93[expectedLength-1] );
+                return -1;
+            }
 
-        if ( xor_byte != responseBuffer[recv_size-1] )
-        {
-            printf("xor should be 0x%x,but 0x%x\n" , xor_byte , responseBuffer[recv_size-1] );
-            return -1;
+            memcpy( responseBuffer , x93 , expectedLength );
+            return expectedLength;
         }
     }
 
-    return recv_size;
+    return valid_length;
 }
 
-int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checkedXor )
+int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength )
 {
     if ( rs232_descriptor < 0 )
     {
@@ -184,16 +240,17 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checked
 
     if ( rs232_write( rs232_descriptor , cmd , cmdLength ) == 0 )
     {
-        perror( "write rs232 error" );
+        perror( "write error" );
+        printf_debug( "rs232_write err\n"  );
         return -1;
     }
 
     if ( debug )
     {
-        printData( cmd , cmdLength , "uart <<<\n");
+        char message[32];
+        sprintf( message , "uart(%d) <<<\n" , rs232_descriptor );
+        printData( cmd , cmdLength ,  message );
     }
-
-    rs232_write( rs232_descriptor , &checkedXor , 1 );
 
     return 0;
 }
