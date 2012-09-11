@@ -13,6 +13,28 @@
 #define SERVPORT 9527
 
 
+
+void *functionSocket2Uart( void *param )
+{
+    Socket2Uart *socket_to_uart=(Socket2Uart *)param;
+
+    socket2uart( socket_to_uart );
+    return 0;
+}
+
+
+
+void socket2uartRefreshUART( Socket2Uart *socket_to_uart , int uart_descriptor )
+{
+    socket_to_uart->uart_fd = uart_descriptor;
+}
+
+void Init_socket2uart( Socket2Uart *socket_to_uart , int uart_descriptor )
+{
+    socket_to_uart->uart_fd = uart_descriptor;
+    pthread_create( &socket_to_uart->threadSocket2Uart , 0 , functionSocket2Uart , socket_to_uart );
+}
+
 int socket2uart_IsConnect( Socket2Uart *socket_to_uart )
 {
     if ( socket_to_uart->connect_fd != -1 )
@@ -39,6 +61,14 @@ void *relay_uart_to_socket( void *param )
 
         if ( socket_to_uart->connect_fd == -1 )
             continue;
+
+        if ( socket_to_uart->uart_fd >= 0 )
+        {
+            char *ret_message="CPAP not ready\n";
+            write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
+            printf_debug( "%s\n" , ret_message );
+            continue;
+        }
 
         printf_debug( "note to read uart[%d]\n" , socket_to_uart->uart_fd );
 
@@ -168,21 +198,28 @@ int socket2uart( Socket2Uart *socket_to_uart )
                 break;
             }
 
+            if ( debug )
+            {
+                printf_debug( "socket[%d] >>> uart[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
+                printData( buffer , read_size , "" );
+            }
+
+            if ( socket_to_uart->uart_fd < 0 )
+            {
+                char *ret_message="CPAP not ready\n";
+                write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
+                printf_debug( "%s\n" , ret_message );
+                continue;
+            }
+
             //empty the rs232 data
-            if ( socket_to_uart->uart_fd > 0 )
+            if ( socket_to_uart->uart_fd >= 0 )
                 while( rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) ) > 0 );
             else
                 printf_error( "uart[%d] open failed\n" , socket_to_uart->uart_fd );
 
             if ( socket_to_uart->uart_fd >= 0 && rs232_write( socket_to_uart->uart_fd , buffer , read_size ) >= 0 )
             {
-
-                if ( debug )
-                {
-                    printf_debug( "socket[%d] >>> uart[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
-                    printData( buffer , read_size , "" );
-                }
-
                 //note the uart-to-socket thread to read uart
                 pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
                 pthread_cond_signal( &socket_to_uart->condSocket2Uart );

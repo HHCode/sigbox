@@ -26,7 +26,6 @@ static pthread_mutex_t mutexTick[MAX_CHANNEL];
 static pthread_cond_t condTick[MAX_CHANNEL];
 
 //-----------For socket to uart-----------
-static pthread_t threadSocket2Uart;
 static Socket2Uart socket_to_uart;
 #define BUF_SIZE 1024
 #define SERVPORT 9527
@@ -347,20 +346,7 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
 
 int CPAPSendCommand( int deviceDesc , CPAPCommand *command )
 {
-    char checkedXor;
-
-    checkedXor = getCheckedXor( command->command_code , command->command_length );
-
-    command->command_code[command->command_length] = checkedXor;
-    command->command_length++;
-
-    if ( sendCPAPCmd( deviceDesc , command->command_code , command->command_length , checkedXor ) )
-        return -1;
-
-    int responseSize;
-    responseSize = recvCPAPResponse( deviceDesc , command->recv_buffer , sizeof( command->recv_buffer ) , command->expected_recv_length );
-
-    return responseSize;
+    return CPAP_SendCommand( deviceDesc , command->command_code , command->command_length , command->recv_buffer , command->recv_length , command->expected_recv_length );;
 }
 
 int cpap2psg( int rs232_descriptor , CPAPCommand *command )
@@ -371,6 +357,11 @@ int cpap2psg( int rs232_descriptor , CPAPCommand *command )
 
     if ( command->recv_length < 0  )
     {
+        if ( debug )
+        {
+            printf_debug("CPAPSendCommand error\n");
+            printData( command->recv_buffer , command->recv_length , "send data error\n");
+        }
         ret= command->recv_length;
         goto EndOf_cpap2psg;
     }
@@ -438,21 +429,13 @@ int GetCommandFromFIFO( int fifoFD , char *command_code , int buffer_size , int 
 
 
 
-void *functionSocket2Uart( void *param )
-{
-    Socket2Uart *socket_to_uart=(Socket2Uart *)param;
 
-    socket2uart( socket_to_uart );
-    return 0;
-}
-
-
-
-
-int ExecuteSeriesCommand( int *rs232_descriptor )
+int ExecuteSeriesCommand( int rs232_descriptor )
 {
     int command_index;
     int is_CPAP_mode=0;
+    int err=0;
+
     for( command_index=0 ; command_index<NUM_OF_COMMAND ; command_index++ )
     {
         //choose one of mode
@@ -462,16 +445,11 @@ int ExecuteSeriesCommand( int *rs232_descriptor )
         if ( is_CPAP_mode==0 && command_index == CPAP_PRESSURE )
             continue;
 
-        int err;
-        err=cpap2psg( *rs232_descriptor , &command_list[command_index] );
-        if ( err == -2 )
-        {
-            close( *rs232_descriptor );
-            *rs232_descriptor = openCPAPDevice();
-        }
+
+        err=cpap2psg( rs232_descriptor , &command_list[command_index] );
     }
 
-    return 0;
+    return err;
 }
 
 int cpapd( void )
@@ -483,16 +461,31 @@ int cpapd( void )
     //deviceDesc = open( "./test.txt" , O_RDWR );
     deviceDesc = openCPAPDevice();
 
-    socket_to_uart.uart_fd=deviceDesc;
-
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
 
-    pthread_create( &threadSocket2Uart , 0 , functionSocket2Uart , &socket_to_uart );
+    Init_socket2uart( &socket_to_uart , deviceDesc );
 
     while(1)
     {
-        if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
-            ExecuteSeriesCommand( &deviceDesc );
+        int uart2DA_result=0;
+        if ( socket2uart_IsConnect( &socket_to_uart ) == 0 && deviceDesc >= 0 )
+        {
+            uart2DA_result=ExecuteSeriesCommand( deviceDesc );
+            if ( uart2DA_result == READ_UART_ERROR )
+            {
+                close( deviceDesc );
+                deviceDesc=-1;
+            }
+        }
+
+        if ( deviceDesc < 0  )
+        {
+            deviceDesc = openCPAPDevice();
+            socket2uartRefreshUART( &socket_to_uart , deviceDesc );
+            if ( deviceDesc < 0 )
+                printf_error( "open uart failed\n" );
+        }
+
 
         int channel;
         for( channel=0 ; channel<MAX_CHANNEL ; channel++ )

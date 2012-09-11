@@ -3,26 +3,110 @@
 #include <string.h>
 #include <cpap.h>
 #include "rs232.h"
+#include <pthread.h>
+#include <stdint.h>
 
+
+#define TEST_UART_NUMBER 10
+typedef struct{
+
+    char deviceName[16];
+    int descriptor;
+
+}UartID;
+
+typedef struct{
+
+    UartID uart_id[TEST_UART_NUMBER];
+    int inuse_uart_index;
+
+}cpapGlobal;
+
+static cpapGlobal cpap_global={
+    inuse_uart_index:-1
+};
+
+
+
+
+int CPAP_SendCommand( int deviceDesc , char *command_code , int command_length , char *recv_buffer , int recv_buffer_length , int expected_recv_length )
+{
+    char checkedXor;
+
+    checkedXor = getCheckedXor( command_code , command_length );
+
+    command_code[command_length] = checkedXor;
+    command_length++;
+
+    if ( sendCPAPCmd( deviceDesc , command_code , command_length , checkedXor ) )
+        return -1;
+
+    int responseSize;
+    responseSize = recvCPAPResponse( deviceDesc , recv_buffer , recv_buffer_length , expected_recv_length );
+
+    return responseSize;
+}
+
+int GetCPAPDescriptor( void )
+{
+    if ( cpap_global.inuse_uart_index > 0 )
+        return cpap_global.uart_id[cpap_global.inuse_uart_index].descriptor;
+    else
+        return 0;
+}
+
+void *functionTestUART( void *param )
+{
+    int uart_id_index=*(int *)param;
+    char command_code[2]={0x93,0xaa};
+    UartID *uart_id = &cpap_global.uart_id[uart_id_index];
+    char recv_buffer[128];
+
+    pthread_detach( pthread_self() );
+    if ( CPAP_SendCommand( uart_id->descriptor , command_code , 2 , recv_buffer , sizeof( recv_buffer ) , 4 ) )
+    {
+        if ( recv_buffer[0] == 0x93 && recv_buffer[1] == 0xaa )
+        {
+            cpap_global.inuse_uart_index = uart_id_index;
+            printf_debug("use uart %s , fd=%d\n" , uart_id->deviceName , uart_id->descriptor );
+        }
+        else
+        {
+            cpap_global.inuse_uart_index=-1;
+            printf_debug("close uart %s doesnt echo\n" , uart_id->deviceName );
+            rs232_close( uart_id->descriptor );
+        }
+    }
+
+    return 0;
+}
 
 
 int openCPAPDevice( void )
 {
-    int usbIndex;
+    int uartIndex;
     int rs232_descriptor;
-    for ( usbIndex=0 ; usbIndex<10 ; usbIndex++ )
+    pthread_t threadTestUART;
+    for ( uartIndex=0 ; uartIndex<TEST_UART_NUMBER ; uartIndex++ )
     {
-        char deviceName[16];
+        char *deviceName = cpap_global.uart_id[uartIndex].deviceName;
+
         bzero( deviceName , sizeof(deviceName) );
-        sprintf( deviceName , "/dev/ttyUSB%d" , usbIndex );
+        sprintf( deviceName , "/dev/ttyUSB%d" , uartIndex );
         rs232_descriptor = rs232_open( deviceName , 9600 );
+
         if ( rs232_descriptor > 0 )
         {
             printf_debug( "open %s ok\n" , deviceName );
-            return rs232_descriptor;
+            cpap_global.uart_id[uartIndex].descriptor=rs232_descriptor;
+            pthread_create( &threadTestUART , 0 , functionTestUART , (void *)uartIndex );
+            return cpap_global.uart_id[uartIndex].descriptor;
         }
         else
+        {
+            cpap_global.uart_id[uartIndex].descriptor = -1;
             printf_debug( "open %s error\n" , deviceName );
+        }
     }
 
     return -1;
@@ -54,7 +138,7 @@ int recvCPAPResponse( int rs232_descriptor , char *responseBuffer , int response
     if ( retry <  0  )
     {
         printf_debug("recv error\n" );
-        return -2;
+        return READ_UART_ERROR;
     }
     else if ( recv_size > 0)
     {
@@ -94,7 +178,7 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength , char checked
 {
     if ( rs232_descriptor < 0 )
     {
-        printf_error( "Cant find CPAP device\n"  );
+        printf_debug( "Cant find CPAP device\n"  );
         return -1;
     }
 
@@ -179,4 +263,6 @@ int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 
     return intputCount;
 }
+
+
 
