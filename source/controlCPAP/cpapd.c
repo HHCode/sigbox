@@ -84,7 +84,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
     {
         command_number:CPAP_PRESSURE,
         name:"CPAP Pressure",           //A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
-        command_code:{0x93 , 0xd2},
+        command_code:{0x93 , 0xcd},
         command_length:2,
         expected_recv_length:5,                  //include xor
         output_DA:'0',
@@ -94,7 +94,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
     {
         command_number:APAP_PRESSURE,
         name:"APAP Pressure",           //A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
-        command_code:{0x93 , 0xcb},
+        command_code:{0x93 , 0xd2},
         command_length:2,
         expected_recv_length:7,
         output_DA:'0',
@@ -103,7 +103,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
     {
         command_number:PATIENT_FLOW,
         name:"Patient Flow",            //B Patient Flow -120 to 120 L/min -1 to 1V DC
-        command_code:{0x93 , 0xd2},
+        command_code:{0x93 , 0xf1},
         command_length:2,
         expected_recv_length:5,
         output_DA:'1',
@@ -363,18 +363,18 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
 }
 
 
-int CPAPSendCommand( int deviceDesc , CPAPCommand *command )
+int CPAPSendCommand( CPAPCommand *command )
 {
-    return CPAP_SendCommand( deviceDesc , command->command_code , command->command_length , command->recv_buffer , sizeof(command->recv_buffer) , command->expected_recv_length );
+    return CPAP_SendCommand( command->command_code , command->command_length , command->recv_buffer , sizeof(command->recv_buffer) , command->expected_recv_length );
 }
 
-int cpap2psg( int rs232_descriptor , CPAPCommand *command )
+int cpap2psg( CPAPCommand *command )
 {
     int ret=-1;
     int retry;
     for( retry=0 ; retry< PERIOD_COMMAND_RETRY ; retry++ )
     {
-        command->recv_length = CPAPSendCommand( rs232_descriptor , command );
+        command->recv_length = CPAPSendCommand( command );
 
         if ( command->recv_length < 0  )
         {
@@ -410,7 +410,6 @@ int cpap2psg( int rs232_descriptor , CPAPCommand *command )
     if ( retry >= PERIOD_COMMAND_RETRY )
         printf_debug( "cmd %s retry over %d times give up\n" , command->name , PERIOD_COMMAND_RETRY );
 
-EndOf_cpap2psg:
     return ret;
 }
 
@@ -464,13 +463,13 @@ int GetCommandFromFIFO( int fifoFD , char *command_code , int buffer_size , int 
 
 
 
-int ExecuteSeriesCommand( int rs232_descriptor )
+int ExecuteSeriesCommand( void )
 {
     int command_index;
     int is_CPAP_mode=0;
     int err=0;
 
-    if  ( CPAPSendCommand( rs232_descriptor , &command_list[MODE] ) < 0 )
+    if  ( CPAPSendCommand( &command_list[MODE] ) < 0 )
         return -1;
 
     if ( command_list[MODE].recv_buffer[2] == 0 )
@@ -491,7 +490,7 @@ int ExecuteSeriesCommand( int rs232_descriptor )
             continue;
 
 
-        err=cpap2psg( rs232_descriptor , &command_list[command_index] );
+        err=cpap2psg( &command_list[command_index] );
     }
 
     return err;
@@ -517,28 +516,22 @@ int is_socket2uart_timeout( struct timeval *connect_time )
 
 int cpapd( void )
 {
-    int rs232_descriptor;
     initDAC();
 
-    int deviceDesc;
     struct timeval connect_time;
 
-    //deviceDesc = open( "./test.txt" , O_RDWR );
-    deviceDesc = openCPAPDevice();
+    Init_CPAP();
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
-    Init_socket2uart( &socket_to_uart , deviceDesc );
+    Init_socket2uart( &socket_to_uart );
     while(1)
     {
         int uart2DA_result=0;
-        if ( socket2uart_IsConnect( &socket_to_uart ) == 0 && deviceDesc >= 0 )
+        if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
         {
             connect_time.tv_sec = 0;
-           // uart2DA_result=ExecuteSeriesCommand( deviceDesc );
-            if ( uart2DA_result == READ_UART_ERROR )
-            {
-                close( deviceDesc );
-                deviceDesc=-1;
-            }
+            Duty_End();
+            uart2DA_result=ExecuteSeriesCommand( );
+            Duty_Start();
         }
         else if ( connect_time.tv_sec == 0 )
         {
@@ -557,25 +550,13 @@ int cpapd( void )
             }
         }
 
-        if ( deviceDesc < 0  )
-        {
-            deviceDesc = openCPAPDevice();
-            socket2uartRefreshUART( &socket_to_uart , deviceDesc );
-            if ( deviceDesc < 0 )
-                printf_error( "open uart failed\n" );
-        }
-
-
         int channel;
         for( channel=0 ; channel<MAX_CHANNEL ; channel++ )
         {
             if ( threadFIFO2DA[channel] == 0 )
                 pthread_create( &threadFIFO2DA[channel] ,0 , functionFIFO2DA , (void *)channel );
         }
-
-   //     sleep( PERIOD_OF_PRESSURE_OUTPUT );
     }
-    rs232_close( rs232_descriptor );
     return 0;
 }
 

@@ -19,42 +19,141 @@ typedef struct{
 
     UartID uart_id[TEST_UART_NUMBER];
     int is_background_free;
+    int uart_fd;
 
 }cpapGlobal;
 
 static cpapGlobal cpap_global;
 
 
-
-
-int CPAP_SendCommand( int deviceDesc , char *command_code , int command_length , uint8_t *recv_buffer , int recv_buffer_length , int expected_recv_length )
+static void tryToOpenCPAP( void )
 {
-    char checkedXor;
+    int retry;
+    for( retry=10 ; retry>0 ; retry-- )
+    {
+        printf_error( "try to reopen uart %d\n", retry );
+        cpap_global.uart_fd = openCPAPDevice();
+        if ( cpap_global.uart_fd > 0 ) break;
+    }
+}
 
-    checkedXor = getCheckedXor( command_code , command_length );
+int CPAP_recv( int descriptor , uint8_t *cmd , int cmd_length )
+{
+    if ( cpap_global.uart_fd > 0 )
+        descriptor = cpap_global.uart_fd;
 
-    command_code[command_length]=checkedXor;
+    if ( descriptor <= 0 )
+    {
+        tryToOpenCPAP();
+        return -1;
+    }
+
+    int recv_return;
+    recv_return = rs232_recv( descriptor , (char *)cmd , cmd_length );
+
+    if ( recv_return < 0 )
+    {
+        perror( "read IO error" );
+
+        tryToOpenCPAP();
+
+        if ( descriptor >= 0 )
+            return CPAP_recv( descriptor , cmd , cmd_length );
+        else
+            return -1;
+    }
+
+    if ( recv_return > 0 && debug )
+    {
+        char message[32];
+        sprintf( message , "FD(%d) >>>\n" , descriptor );
+        printData( (char *)cmd , recv_return , message );
+    }
+
+    return recv_return;
+}
+
+
+int CPAP_send( int descriptor , char *cmd , int cmd_length )
+{
+    if ( cpap_global.uart_fd > 0 )
+        descriptor = cpap_global.uart_fd;
+
+    if ( descriptor <= 0 )
+    {
+        tryToOpenCPAP();
+        return -1;
+    }
+
+    if ( rs232_write( descriptor , cmd , cmd_length ) == 0 )
+    {
+        perror( "write IO error" );
+
+        tryToOpenCPAP();
+
+        if ( descriptor >= 0 )
+            return CPAP_send( descriptor , cmd , cmd_length );
+        else
+            return -1;
+    }
+
+    if ( debug )
+    {
+        char message[32];
+        sprintf( message , "FD(%d) <<<\n" , descriptor );
+        printData( cmd , cmd_length ,  message );
+    }
+
+    return 0;
+}
+
+
+static int SendCommand( int descriptor , char *command_code , int command_length , uint8_t *recv_buffer , int recv_buffer_length , int expected_recv_length )
+{
+    uint8_t checkedXor;
+
+    checkedXor = getCheckedXor( (uint8_t *)command_code , command_length );
+
+    command_code[command_length]=(char)checkedXor;
     command_length++;
 
-    if ( sendCPAPCmd( deviceDesc , command_code , command_length ) )
+    if ( rs232_write( descriptor , command_code , command_length ) == 0 )
         return -1;
 
     int responseSize;
-    responseSize = recvCPAPResponse( deviceDesc , recv_buffer , recv_buffer_length , command_code[1] ,  expected_recv_length );
+    responseSize = recvCPAPResponse( descriptor , recv_buffer , recv_buffer_length , command_code[1] ,  expected_recv_length );
+
+    return responseSize;
+}
+
+
+int CPAP_SendCommand( char *command_code , int command_length , uint8_t *recv_buffer , int recv_buffer_length , int expected_recv_length )
+{
+    uint8_t checkedXor;
+
+    checkedXor = getCheckedXor( (uint8_t*)command_code , command_length );
+
+    command_code[command_length]= ( char)checkedXor;
+    command_length++;
+
+    if ( CPAP_send( 0 , command_code , command_length ) )
+        return -1;
+
+    int responseSize;
+    responseSize = recvCPAPResponse( cpap_global.uart_fd , recv_buffer , recv_buffer_length , command_code[1] ,  expected_recv_length );
+
+    static int succssive_recv_zero=0;
+    if ( responseSize == READ_NOTHING ) succssive_recv_zero++;
+    else succssive_recv_zero=0;
+    if ( succssive_recv_zero > 100 )
+        tryToOpenCPAP();
 
     return responseSize;
 }
 
 int GetCPAPDescriptor( void )
 {
-    int uartIndex;
-    for ( uartIndex=0 ; uartIndex<TEST_UART_NUMBER ; uartIndex++ )
-    {
-        if ( cpap_global.uart_id[uartIndex].descriptor >= 0 )
-            return cpap_global.uart_id[uartIndex].descriptor;
-    }
-
-    return -1;
+    return cpap_global.uart_fd;
 }
 
 void *functionTestUART( void *param )
@@ -66,12 +165,13 @@ void *functionTestUART( void *param )
     int is_cpap_present=0;
 
    // pthread_detach( pthread_self() );
-    if ( CPAP_SendCommand( uart_id->descriptor , command_code , 2 , recv_buffer , sizeof( recv_buffer ) , 4 ) > 0 )
+    if ( SendCommand( uart_id->descriptor , command_code , 2 , recv_buffer , sizeof( recv_buffer ) , 4 ) > 0 )
     {
         if ( recv_buffer[0] == 0x93 && recv_buffer[1] == 0xaa )
         {
             printf_debug("use uart %s , uart_id[%d].descriptor=%d\n" , uart_id->deviceName , uart_id_index , uart_id->descriptor );
             is_cpap_present=1;
+            cpap_global.uart_fd=uart_id->descriptor;
         }
         else
         {
@@ -88,12 +188,15 @@ void *functionTestUART( void *param )
     return 0;
 }
 
-
 int openCPAPDevice( void )
 {
     int uartIndex;
     int io_descriptor;
     pthread_t threadTestUART[TEST_UART_NUMBER];
+
+    if ( cpap_global.uart_fd != -1 ) close( cpap_global.uart_fd );
+
+    cpap_global.uart_fd=-1;
 
     for ( uartIndex=0 ; uartIndex<TEST_UART_NUMBER ; uartIndex++ )
     {
@@ -124,8 +227,14 @@ int openCPAPDevice( void )
             pthread_join( threadTestUART[uartIndex] , 0 );
     }
 
-    printf("use descriptor:%d\n", GetCPAPDescriptor() );
+    printf_debug("use descriptor:%d\n", GetCPAPDescriptor() );
     return GetCPAPDescriptor();
+}
+
+
+void Init_CPAP( void )
+{
+    openCPAPDevice();
 }
 
 int isErrorCode( uint8_t test_byte )
@@ -139,7 +248,7 @@ int isErrorCode( uint8_t test_byte )
     return 0;
 }
 
-int recvCPAPResponse( int io_descriptor , uint8_t *responseBuffer , int responseBufferLength , uint8_t cmd_byte , int expectedLength )
+int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLength , uint8_t cmd_byte , int expectedLength )
 {
     int recv_size=0;
     int retry=10;
@@ -150,22 +259,9 @@ int recvCPAPResponse( int io_descriptor , uint8_t *responseBuffer , int response
     uint8_t error_code=0;
     do
     {
-        recv_return = rs232_recv( io_descriptor , (char *)&responseBuffer[recv_size] , responseBufferLength-recv_size );
-
-        if ( recv_return < 0 )
-        {
-            perror( "read IO error" );
-            break;
-        }
+        recv_return = CPAP_recv( io_fd , &responseBuffer[recv_size] , responseBufferLength-recv_size );
 
         recv_size += recv_return;
-
-        if ( recv_return > 0 && debug )
-        {
-            char message[32];
-            sprintf( message , "uart(%d) >>>\n" , io_descriptor );
-            printData( (char *)responseBuffer , recv_size , message );
-        }
 
         if ( isErrorCode( responseBuffer[0] ) )
         {
@@ -206,22 +302,17 @@ int recvCPAPResponse( int io_descriptor , uint8_t *responseBuffer , int response
     else if ( retry < 0 )
     {
         printf_debug("cant find 0x93\n"  );
-        return -1;
+        return READ_NOTHING;
     }
     else if ( recv_size > 0)
     {
         if ( error_code == 0 )
         {
-            printf_debug( "fd:%d,expected value:%d,actually receive:%d\n" , io_descriptor ,  expectedLength , recv_size );
+            printf_debug( "fd:%d,expected value:%d,actually receive:%d\n" , io_fd ,  expectedLength , recv_size );
 
-            int index;
             uint8_t xor_byte;
 
-            xor_byte = x93_cmd[0];
-            for( index=1; index< expectedLength-1 ; index++ )
-            {
-                xor_byte ^= x93_cmd[index];
-            }
+            xor_byte = (uint8_t)getCheckedXor( x93_cmd , expectedLength-1 );
 
             if ( xor_byte != x93_cmd[expectedLength-1] )
             {
@@ -237,34 +328,9 @@ int recvCPAPResponse( int io_descriptor , uint8_t *responseBuffer , int response
     return valid_length;
 }
 
-int sendCPAPCmd( int io_descriptor , char *cmd , int cmdLength )
+char getCheckedXor( uint8_t *cmdBuffer , int dataSize )
 {
-    if ( io_descriptor < 0 )
-    {
-        printf_debug( "Cant find CPAP device\n"  );
-        return -1;
-    }
-
-    if ( rs232_write( io_descriptor , cmd , cmdLength ) == 0 )
-    {
-        perror( "write error" );
-        printf_debug( "rs232_write err\n"  );
-        return -1;
-    }
-
-    if ( debug )
-    {
-        char message[32];
-        sprintf( message , "uart(%d) <<<\n" , io_descriptor );
-        printData( cmd , cmdLength ,  message );
-    }
-
-    return 0;
-}
-
-char getCheckedXor( char *cmdBuffer , int dataSize )
-{
-    char checkedXor;
+    uint8_t checkedXor;
     int bufferIndex;
 
     checkedXor=cmdBuffer[0];

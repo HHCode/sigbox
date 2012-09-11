@@ -5,7 +5,6 @@
 
 typedef struct{
 
-    int uart_fd;
     int port;
     char uart_name[32];
     int listen_fd;
@@ -18,7 +17,7 @@ typedef struct{
 }Socket2Uart;
 
 void socket2uartRefreshUART( Socket2Uart *socket_to_uart , int uart_descriptor );
-void Init_socket2uart(Socket2Uart *socket_to_uart , int uart_descriptor );
+void Init_socket2uart( Socket2Uart *socket_to_uart );
 int socket2uart( Socket2Uart *socket_to_uart );
 int socket2uart_IsConnect( Socket2Uart *socket_to_uart );
 

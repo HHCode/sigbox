@@ -1,6 +1,45 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/time.h>
+
+
+
+struct timeval start;
+//--------------------------------------------------------
+// Function Name : Check_Stream
+// Purpose       : 為了方便debug時間上的問題，但注意此function不是thread safe的
+// Input         :
+// Output        : None
+// return value  : None
+// Modified Date : 2009/11/2 by HawkHsieh
+// Notice                :
+//--------------------------------------------------------
+void Duty_Start( void )
+{
+        gettimeofday(&start,0);
+}
+
+
+//--------------------------------------------------------
+// Function Name : Duty_End
+// Purpose       :
+// Input         :
+// Output        : None
+// return value  : None
+// Modified Date : 2009/11/2 by HawkHsieh
+// Notice                :
+//--------------------------------------------------------
+int Duty_End( void )
+{
+        struct timeval end;
+        int Cost;
+        gettimeofday(&end,0);
+        Cost = ((end.tv_sec - start.tv_sec) * 1000000 + end.tv_usec - start.tv_usec);
+        printf("Duty cost %dus\n",Cost);
+        return Cost;
+}
+
 
 void printData( char *data , int size , char *prefix )
 {

@@ -35,7 +35,7 @@ int main( int argc , char **argv )
     int deviceDesc;
     deviceDesc = openCPAPDevice();
 
-    if ( sendCPAPCmd( deviceDesc , cmdBuffer , intputCount , checkedXor ) )
+    if ( CPAP_send( deviceDesc , cmdBuffer , intputCount , checkedXor ) )
         exit(1);
 
     unsigned char responseBuffer[1024];

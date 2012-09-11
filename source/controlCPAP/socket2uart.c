@@ -9,6 +9,7 @@
 #include "socket2uart.h"
 #include "common.h"
 #include "ctype.h"
+#include "cpap.h"
 #define BUF_SIZE 1024
 #define SERVPORT 9527
 
@@ -23,15 +24,8 @@ void *functionSocket2Uart( void *param )
 }
 
 
-
-void socket2uartRefreshUART( Socket2Uart *socket_to_uart , int uart_descriptor )
+void Init_socket2uart( Socket2Uart *socket_to_uart )
 {
-    socket_to_uart->uart_fd = uart_descriptor;
-}
-
-void Init_socket2uart( Socket2Uart *socket_to_uart , int uart_descriptor )
-{
-    socket_to_uart->uart_fd = uart_descriptor;
     pthread_create( &socket_to_uart->threadSocket2Uart , 0 , functionSocket2Uart , socket_to_uart );
 }
 
@@ -79,7 +73,7 @@ void *relay_uart_to_socket( void *param )
     Socket2Uart *socket_to_uart=(Socket2Uart *)param;
 
     int read_size;
-    char buffer[BUF_SIZE];
+    uint8_t buffer[BUF_SIZE];
     int write_size;
     pthread_detach( pthread_self() );
 
@@ -93,27 +87,13 @@ void *relay_uart_to_socket( void *param )
         if ( socket_to_uart->connect_fd == -1 )
             continue;
 
-        if ( socket_to_uart->uart_fd < 0 )
-        {
-            char *ret_message="CPAP not ready\n";
-            write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
-            printf_debug( "%s\n" , ret_message );
-            continue;
-        }
-
-        printf_debug( "note to read uart[%d]\n" , socket_to_uart->uart_fd );
-
         while( socket_to_uart->connect_fd >= 0)
         {
-            read_size = rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) );
+            printf_debug( "socket[%d] <<< uart\n" , socket_to_uart->connect_fd );
+
+            read_size = CPAP_recv( 0 , buffer , sizeof(buffer)  );
             if ( read_size > 0 )
             {
-                if ( debug )
-                {
-                    printf_debug( "socket[%d] <<< uart[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
-                    printData( buffer , read_size , "" );
-                }
-
                 write_size = write( socket_to_uart->connect_fd , buffer , read_size );
 
                 if ( write_size < 0 )
@@ -127,8 +107,6 @@ void *relay_uart_to_socket( void *param )
             }
             else if ( read_size < 0 )
             {
-                perror( "rs232_read");
-                printf_error( "read from uart error\n"  );
                 char *ret_message="rs232 read error\n";
                 write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
                 break;
@@ -236,25 +214,11 @@ int socket2uart( Socket2Uart *socket_to_uart )
 
             if ( debug )
             {
-                printf_debug( "socket[%d] >>> uart[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
+                printf_debug( "socket[%d] >>> uart\n" , socket_to_uart->connect_fd );
                 printData( buffer , read_size , "" );
             }
 
-            if ( socket_to_uart->uart_fd < 0 )
-            {
-                char *ret_message="CPAP not ready\n";
-                write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
-                printf_debug( "%s\n" , ret_message );
-                continue;
-            }
-
-            //empty the rs232 data
-            if ( socket_to_uart->uart_fd >= 0 )
-                while( rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) ) > 0 );
-            else
-                printf_error( "uart[%d] open failed\n" , socket_to_uart->uart_fd );
-
-            if ( socket_to_uart->uart_fd >= 0 && rs232_write( socket_to_uart->uart_fd , buffer , read_size ) >= 0 )
+            if ( CPAP_send( 0 , buffer , read_size ) >= 0 )
             {
                 //note the uart-to-socket thread to read uart
                 pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
@@ -263,8 +227,6 @@ int socket2uart( Socket2Uart *socket_to_uart )
             }
             else
             {
-                perror( "rs232_write" );
-                printf_error( "fd:%d,write to %s error\n" ,  socket_to_uart->uart_fd, socket_to_uart->uart_name );
                 char *uart_open_failed="FAILED\nCPAP open error\n";
                 write( socket_to_uart->connect_fd , uart_open_failed , strlen(uart_open_failed) );
             }

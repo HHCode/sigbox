@@ -18,4 +18,7 @@ extern int debug;
 
 void printData( char *data , int size , char *prefix );
 
+int Duty_End( void );
+void Duty_Start( void );
+
 #endif

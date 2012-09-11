@@ -29,7 +29,7 @@
 
 int port=SERVPORT;
 
-int debug;
+int debug=0;
 
 int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 {
@@ -65,6 +65,9 @@ int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 /* set the server name in the #define SERVER ... */
 int main(int argc, char *argv[])
 {
+    if ( access( "/etc/debug" , 0 ) == 0 )
+        debug=1;
+
     /* Variable and structure definitions. */
     int sd, rc, length = sizeof(int);
     struct sockaddr_in serveraddr;
