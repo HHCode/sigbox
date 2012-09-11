@@ -53,6 +53,7 @@ void *relay_uart_to_socket( void *param )
     int write_size;
     pthread_detach( pthread_self() );
 
+
     while(1)
     {
         pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
@@ -62,7 +63,7 @@ void *relay_uart_to_socket( void *param )
         if ( socket_to_uart->connect_fd == -1 )
             continue;
 
-        if ( socket_to_uart->uart_fd >= 0 )
+        if ( socket_to_uart->uart_fd < 0 )
         {
             char *ret_message="CPAP not ready\n";
             write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
@@ -72,38 +73,36 @@ void *relay_uart_to_socket( void *param )
 
         printf_debug( "note to read uart[%d]\n" , socket_to_uart->uart_fd );
 
-        read_size = rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) );
-        if ( read_size > 0 )
+        while( socket_to_uart->connect_fd >= 0)
         {
-            if ( debug )
+            read_size = rs232_recv( socket_to_uart->uart_fd , buffer , sizeof(buffer) );
+            if ( read_size > 0 )
             {
-                printf_debug( "uart[%d] <<< socket[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
-                printData( buffer , read_size , "" );
+                if ( debug )
+                {
+                    printf_debug( "socket[%d] <<< uart[%d]\n" , socket_to_uart->connect_fd , socket_to_uart->uart_fd );
+                    printData( buffer , read_size , "" );
+                }
+
+                write_size = write( socket_to_uart->connect_fd , buffer , read_size );
+
+                if ( write_size < 0 )
+                {
+                    if ( socket_to_uart->connect_fd >= 0 )
+                        close ( socket_to_uart->connect_fd );
+                    socket_to_uart->connect_fd = -1;
+                    printf_error( "write to socket error\n" );
+                    break;
+                }
             }
-
-            write_size = write( socket_to_uart->connect_fd , buffer , read_size );
-
-            if ( write_size < 0 )
+            else if ( read_size < 0 )
             {
-                close ( socket_to_uart->connect_fd );
-                socket_to_uart->connect_fd = -1;
-                printf_error( "write to socket error\n" );
-                continue;
+                perror( "rs232_read");
+                printf_error( "read from uart error\n"  );
+                char *ret_message="rs232 read error\n";
+                write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
+                break;
             }
-        }
-        else if ( read_size < 0 )
-        {
-            perror( "rs232_read");
-            printf_error( "read from uart error\n"  );
-            char *ret_message="rs232 read error\n";
-            write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
-            break;
-        }
-        else
-        {
-            printf_debug("rs232 recv timeout\n");
-            char *ret_message="rs232 recv timeout\n";
-            write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
         }
     }
 

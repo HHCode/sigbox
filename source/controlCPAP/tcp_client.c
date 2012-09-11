@@ -16,6 +16,8 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
+
+#include "cpap.h"
 /* BufferLength is 100 bytes */
 #define BufferLength 100
 /* Default host name of server system. Change it to your default */
@@ -27,6 +29,7 @@
 
 int port=SERVPORT;
 
+int debug;
 
 int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 {
@@ -65,7 +68,7 @@ int main(int argc, char *argv[])
     /* Variable and structure definitions. */
     int sd, rc, length = sizeof(int);
     struct sockaddr_in serveraddr;
-    char buffer[BufferLength];
+    unsigned char buffer[BufferLength];
     char server[255];
     char temp;
     int totalcnt = 0;
@@ -173,8 +176,14 @@ int main(int argc, char *argv[])
 
 //    exit(0);
 
+   while( recvCPAPResponse( sd, buffer , BufferLength , 5 ) <= 0 );
+
+   exit(0);
+
+    unsigned char *x93=0;
+    int valid_length=0;
     totalcnt = 0;
-    while(totalcnt < 7 )
+    while( valid_length <5 && totalcnt < 10 )
     {
 
         /* Wait for the server to echo the */
@@ -195,16 +204,33 @@ int main(int argc, char *argv[])
             exit(-1);
         }
         else
+        {
             totalcnt += rc;
+            printData( buffer , totalcnt , ">>>>>\n");
+
+            if ( x93 == 0 )
+            {
+                int index;
+                for( index=0 ; index<totalcnt ; index++ )
+                    if ( buffer[index] == 0x93 ) x93=&buffer[index];
+            }
+            else
+                valid_length = totalcnt - ( x93 - buffer) ;
+        }
     }
     printf("Client-read() is OK\n");
     //printf("Echoed data from the f***ing server: %s\n", buffer);
-    printData( buffer , totalcnt , ">>>>>\n");
     /* When the data has been read, close() */
     /* the socket descriptor. */
     /****************************************/
     /* Close socket descriptor from client side. */
     close(sd);
-    exit(0);
+    if ( x93 )
+    {
+        printf("no x93=%p\n",x93);
+        exit(0);
+    }
+    else
+        exit(1);
     return 0;
 }

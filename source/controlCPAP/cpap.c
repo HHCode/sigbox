@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cpap.h>
-#include "rs232.h"
 #include <pthread.h>
 #include <stdint.h>
 
+#include "cpap.h"
+#include "rs232.h"
 
 #define TEST_UART_NUMBER 10
 typedef struct{
@@ -62,20 +62,26 @@ void *functionTestUART( void *param )
     char command_code[32]={0x93,0xaa};
     UartID *uart_id = &cpap_global.uart_id[uart_id_index];
     uint8_t recv_buffer[128];
+    int is_cpap_present=0;
 
    // pthread_detach( pthread_self() );
-    if ( CPAP_SendCommand( uart_id->descriptor , command_code , 2 , recv_buffer , sizeof( recv_buffer ) , 4 ) )
+    if ( CPAP_SendCommand( uart_id->descriptor , command_code , 2 , recv_buffer , sizeof( recv_buffer ) , 4 ) > 0 )
     {
         if ( recv_buffer[0] == 0x93 && recv_buffer[1] == 0xaa )
         {
             printf_debug("use uart %s , uart_id[%d].descriptor=%d\n" , uart_id->deviceName , uart_id_index , uart_id->descriptor );
+            is_cpap_present=1;
         }
         else
         {
             printf_debug("close uart %s doesnt echo\n" , uart_id->deviceName );
-            rs232_close( uart_id->descriptor );
-            uart_id->descriptor = -1;
         }
+    }
+
+    if ( is_cpap_present == 0 )
+    {
+        rs232_close( uart_id->descriptor );
+        uart_id->descriptor = -1;
     }
 
     return 0;
@@ -292,34 +298,5 @@ int getchTimeOut( int timeout )
     // return 0 if STDIN is not ready to be read.
     return FD_ISSET(STDIN_FILENO, &fds);
 }
-
-int getCmdFromStdin( char *cmdBuffer , int bufferSize )
-{
-    int intputCount=0;
-    char inputFromStdIn;
-
-
-    do
-    {
-        if (getchTimeOut(1)==0) break;
-        inputFromStdIn = getchar();
-
-        printf_debug( "get 0x%x\n" , inputFromStdIn );
-
-        if ( inputFromStdIn == '\n' ) break;
-
-        cmdBuffer[intputCount++]=inputFromStdIn;
-
-
-        if (intputCount >= bufferSize )
-        {
-            printf("input too long,should be less then %d\n" , sizeof(cmdBuffer ));
-            exit(1);
-        }
-    }while( inputFromStdIn != '\n' );
-
-    return intputCount;
-}
-
 
 

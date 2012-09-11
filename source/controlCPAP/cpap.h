@@ -1,6 +1,6 @@
 #ifndef CPAP_H
 #define CPAP_H
-#include <common.h>
+#include "common.h"
 #include <stdint.h>
 #define DEVICE_NAME "/dev/ttyUSB%d"
 
