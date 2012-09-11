@@ -497,12 +497,32 @@ int ExecuteSeriesCommand( int rs232_descriptor )
     return err;
 }
 
+int is_socket2uart_timeout( struct timeval *connect_time )
+{
+    struct timeval present_time;
+    gettimeofday( &present_time , 0 );
+    int timeout_second = (present_time.tv_sec - connect_time->tv_sec);
+    int timeout_usecond = (present_time.tv_usec - connect_time->tv_usec );
+
+    if ( timeout_second > 0 )
+        return timeout_second*1000000;
+    else
+    {
+        if ( timeout_usecond > 500000 )
+            return timeout_usecond;
+    }
+
+    return 0;
+}
+
 int cpapd( void )
 {
     int rs232_descriptor;
     initDAC();
 
     int deviceDesc;
+    struct timeval connect_time;
+
     //deviceDesc = open( "./test.txt" , O_RDWR );
     deviceDesc = openCPAPDevice();
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
@@ -512,11 +532,28 @@ int cpapd( void )
         int uart2DA_result=0;
         if ( socket2uart_IsConnect( &socket_to_uart ) == 0 && deviceDesc >= 0 )
         {
-            uart2DA_result=ExecuteSeriesCommand( deviceDesc );
+            connect_time.tv_sec = 0;
+           // uart2DA_result=ExecuteSeriesCommand( deviceDesc );
             if ( uart2DA_result == READ_UART_ERROR )
             {
                 close( deviceDesc );
                 deviceDesc=-1;
+            }
+        }
+        else if ( connect_time.tv_sec == 0 )
+        {
+            gettimeofday( &connect_time , 0 );
+            socket2uart_setExecutePermit( &socket_to_uart , 1 );
+        }
+        else
+        {
+            if ( is_socket2uart_timeout( &connect_time ) > 1000000 )
+            {
+                socket2uart_closeForced( &socket_to_uart );
+            }
+            else if ( is_socket2uart_timeout( &connect_time ) > 500000 )
+            {
+                socket2uart_setExecutePermit( &socket_to_uart , 0 );
             }
         }
 

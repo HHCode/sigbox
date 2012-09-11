@@ -37,12 +37,42 @@ void Init_socket2uart( Socket2Uart *socket_to_uart , int uart_descriptor )
 
 int socket2uart_IsConnect( Socket2Uart *socket_to_uart )
 {
+    int connect;
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
     if ( socket_to_uart->connect_fd != -1 )
-        return 1;
+        connect=1;
     else
-        return 0;
+        connect=0;
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+
+    return connect;
 }
 
+
+void socket2uart_closeForced( Socket2Uart *socket_to_uart )
+{
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+    close( socket_to_uart->connect_fd );
+    socket_to_uart->connect_fd=-1;
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+}
+
+void socket2uart_setExecutePermit( Socket2Uart *socket_to_uart , int execution_permit )
+{
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+    socket_to_uart->execution_permit=execution_permit;
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+}
+
+int socket2uart_getExecutePermit( Socket2Uart *socket_to_uart )
+{
+    int permit;
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+    permit = socket_to_uart->execution_permit;
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+
+    return permit;
+}
 
 void *relay_uart_to_socket( void *param )
 {
@@ -122,6 +152,16 @@ int socket2uart( Socket2Uart *socket_to_uart )
     {
         socket_to_uart->connect_fd = -1;
         socket_to_uart->connect_fd = start_tcp_server( &socket_to_uart->listen_fd , socket_to_uart->port );
+
+        int retry=20;
+        //Wait permit from cpapd. about 0.5s will be timeout
+        while( socket2uart_getExecutePermit( socket_to_uart ) == 0 && retry-- > 0 )
+            usleep( 50000 );
+        if ( retry <=0 )
+        {
+            socket2uart_closeForced( socket_to_uart );
+            continue;
+        }
 
         if ( socket_to_uart->relay_thread_handle == -1 )
             pthread_create( &socket_to_uart->relay_thread_handle , 0 ,  relay_uart_to_socket , socket_to_uart );

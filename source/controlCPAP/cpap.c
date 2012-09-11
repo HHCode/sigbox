@@ -18,6 +18,7 @@ typedef struct{
 typedef struct{
 
     UartID uart_id[TEST_UART_NUMBER];
+    int is_background_free;
 
 }cpapGlobal;
 
@@ -39,7 +40,7 @@ int CPAP_SendCommand( int deviceDesc , char *command_code , int command_length ,
         return -1;
 
     int responseSize;
-    responseSize = recvCPAPResponse( deviceDesc , recv_buffer , recv_buffer_length , expected_recv_length );
+    responseSize = recvCPAPResponse( deviceDesc , recv_buffer , recv_buffer_length , command_code[1] ,  expected_recv_length );
 
     return responseSize;
 }
@@ -91,7 +92,7 @@ void *functionTestUART( void *param )
 int openCPAPDevice( void )
 {
     int uartIndex;
-    int rs232_descriptor;
+    int io_descriptor;
     pthread_t threadTestUART[TEST_UART_NUMBER];
 
     for ( uartIndex=0 ; uartIndex<TEST_UART_NUMBER ; uartIndex++ )
@@ -101,12 +102,12 @@ int openCPAPDevice( void )
 
         bzero( deviceName , sizeof(deviceName) );
         sprintf( deviceName , "/dev/ttyUSB%d" , uartIndex );
-        rs232_descriptor = rs232_open( deviceName , 9600 );
+        io_descriptor = rs232_open( deviceName , 9600 );
 
-        if ( rs232_descriptor > 0 )
+        if ( io_descriptor > 0 )
         {
             printf_debug( "open %s ok\n" , deviceName );
-            cpap_global.uart_id[uartIndex].descriptor=rs232_descriptor;
+            cpap_global.uart_id[uartIndex].descriptor=io_descriptor;
             pthread_create( &threadTestUART[uartIndex] , 0 , functionTestUART , (void *)uartIndex );
             continue;
         }
@@ -130,7 +131,7 @@ int openCPAPDevice( void )
 int isErrorCode( uint8_t test_byte )
 {
 
-    if (( test_byte & 0xe0 ) == 0xe0 )
+    if (( test_byte & 0xf0 ) == 0xe0 )
     {
         printf_error( "error code is 0x%x\n" , test_byte );
         return 1;
@@ -138,22 +139,22 @@ int isErrorCode( uint8_t test_byte )
     return 0;
 }
 
-int recvCPAPResponse( int rs232_descriptor , uint8_t *responseBuffer , int responseBufferLength , int expectedLength )
+int recvCPAPResponse( int io_descriptor , uint8_t *responseBuffer , int responseBufferLength , uint8_t cmd_byte , int expectedLength )
 {
     int recv_size=0;
     int retry=10;
     int recv_return;
-    uint8_t *x93=0;
+    uint8_t *x93_cmd=0;
     int valid_length=0;
     int index;
     uint8_t error_code=0;
     do
     {
-        recv_return = rs232_recv( rs232_descriptor , (char *)&responseBuffer[recv_size] , responseBufferLength-recv_size );
+        recv_return = rs232_recv( io_descriptor , (char *)&responseBuffer[recv_size] , responseBufferLength-recv_size );
 
         if ( recv_return < 0 )
         {
-            perror( "read rs232 error" );
+            perror( "read IO error" );
             break;
         }
 
@@ -162,7 +163,7 @@ int recvCPAPResponse( int rs232_descriptor , uint8_t *responseBuffer , int respo
         if ( recv_return > 0 && debug )
         {
             char message[32];
-            sprintf( message , "uart(%d) >>>\n" , rs232_descriptor );
+            sprintf( message , "uart(%d) >>>\n" , io_descriptor );
             printData( (char *)responseBuffer , recv_size , message );
         }
 
@@ -174,20 +175,20 @@ int recvCPAPResponse( int rs232_descriptor , uint8_t *responseBuffer , int respo
         }
 
 
-        if ( x93 == 0 )
+        if ( x93_cmd == 0 )
         {
             for( index=0 ; index<recv_size ; index++ )
             {
-                if (responseBuffer[index] == 0x93)
+                if (responseBuffer[index] == 0x93 && responseBuffer[index+1] == cmd_byte )
                 {
-                    x93 = &responseBuffer[index];
-                    printf_debug("find 0x93 at responseBuffer[%d]\n" , ( x93 - responseBuffer ) );
+                    x93_cmd = &responseBuffer[index];
+                    printf_debug("find 0x93,%x at responseBuffer[%d]\n" , cmd_byte , ( x93_cmd - responseBuffer ) );
                 }
             }
         }
         else
         {
-            valid_length = recv_size - ( x93 - responseBuffer );
+            valid_length = recv_size - ( x93_cmd - responseBuffer );
         }
 
 
@@ -211,24 +212,24 @@ int recvCPAPResponse( int rs232_descriptor , uint8_t *responseBuffer , int respo
     {
         if ( error_code == 0 )
         {
-            printf_debug( "fd:%d,expected value:%d,actually receive:%d\n" , rs232_descriptor ,  expectedLength , recv_size );
+            printf_debug( "fd:%d,expected value:%d,actually receive:%d\n" , io_descriptor ,  expectedLength , recv_size );
 
             int index;
             uint8_t xor_byte;
 
-            xor_byte = x93[0];
+            xor_byte = x93_cmd[0];
             for( index=1; index< expectedLength-1 ; index++ )
             {
-                xor_byte ^= x93[index];
+                xor_byte ^= x93_cmd[index];
             }
 
-            if ( xor_byte != x93[expectedLength-1] )
+            if ( xor_byte != x93_cmd[expectedLength-1] )
             {
-                printf("xor should be 0x%x,but 0x%x\n" , xor_byte , x93[expectedLength-1] );
+                printf("xor should be 0x%x,but 0x%x\n" , xor_byte , x93_cmd[expectedLength-1] );
                 return -1;
             }
 
-            memcpy( responseBuffer , x93 , expectedLength );
+            memcpy( responseBuffer , x93_cmd , expectedLength );
             return expectedLength;
         }
     }
@@ -236,15 +237,15 @@ int recvCPAPResponse( int rs232_descriptor , uint8_t *responseBuffer , int respo
     return valid_length;
 }
 
-int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength )
+int sendCPAPCmd( int io_descriptor , char *cmd , int cmdLength )
 {
-    if ( rs232_descriptor < 0 )
+    if ( io_descriptor < 0 )
     {
         printf_debug( "Cant find CPAP device\n"  );
         return -1;
     }
 
-    if ( rs232_write( rs232_descriptor , cmd , cmdLength ) == 0 )
+    if ( rs232_write( io_descriptor , cmd , cmdLength ) == 0 )
     {
         perror( "write error" );
         printf_debug( "rs232_write err\n"  );
@@ -254,7 +255,7 @@ int sendCPAPCmd( int rs232_descriptor , char *cmd , int cmdLength )
     if ( debug )
     {
         char message[32];
-        sprintf( message , "uart(%d) <<<\n" , rs232_descriptor );
+        sprintf( message , "uart(%d) <<<\n" , io_descriptor );
         printData( cmd , cmdLength ,  message );
     }
 

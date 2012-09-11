@@ -41,7 +41,7 @@ int getCmdFromStdin( char *cmdBuffer , int bufferSize )
     {
         inputFromStdIn = getchar();
 
-    //    printf( "get 0x%x\n" , inputFromStdIn );
+    //    printf_debug( "get 0x%x\n" , inputFromStdIn );
 
         if ( inputFromStdIn == '\n' ) break;
 
@@ -50,7 +50,7 @@ int getCmdFromStdin( char *cmdBuffer , int bufferSize )
 
         if (intputCount >= bufferSize )
         {
-            printf("input too long,should be less then %d\n" , sizeof(cmdBuffer ));
+            printf_debug("input too long,should be less then %d\n" , sizeof(cmdBuffer ));
             exit(1);
         }
     }while( inputFromStdIn != '\n' );
@@ -81,14 +81,15 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("example:tcp_client localhost 21\n");
+        printf_debug("example:tcp_client localhost 21\n");
         exit(1);
     }
 
     int stdin_size;
     stdin_size = getCmdFromStdin( buffer , sizeof(buffer));
 
-    printData( buffer , stdin_size , "<<<<\n");
+    if ( debug )
+        printData( buffer , stdin_size , "send\n");
 
     /* The socket() function returns a socket */
     /* descriptor representing an endpoint. */
@@ -104,7 +105,7 @@ int main(int argc, char *argv[])
         exit(-1);
     }
     else
-        printf("Client-socket() OK\n");
+        printf_debug("Client-socket() OK\n");
 
     memset(&serveraddr, 0x00, sizeof(struct sockaddr_in));
     serveraddr.sin_family = AF_INET;
@@ -121,12 +122,12 @@ int main(int argc, char *argv[])
         hostp = gethostbyname(server);
         if(hostp == (struct hostent *)NULL)
         {
-            printf("HOST NOT FOUND --> ");
+            printf_debug("HOST NOT FOUND --> ");
             /* h_errno is usually defined */
             /* in netdb.h */
-            printf("h_errno = %d\n",h_errno);
-            printf("---This is a client program---\n");
-            printf("Command usage: %s <server name or IP>\n", argv[0]);
+            printf_debug("h_errno = %d\n",h_errno);
+            printf_debug("---This is a client program---\n");
+            printf_debug("Command usage: %s <server name or IP>\n", argv[0]);
             close(sd);
             exit(-1);
         }
@@ -145,13 +146,12 @@ int main(int argc, char *argv[])
         exit(-1);
     }
     else
-        printf("Connection established...\n");
+        printf_debug("Connection established...\n");
 
     /* Send string to the server using */
     /* the write() function. */
     /*********************************************/
     /* Write() some string to the server. */
-    printf("Sending some string to the f***ing %s...\n", server);
 
     rc = write(sd, buffer , stdin_size );
 
@@ -170,67 +170,21 @@ int main(int argc, char *argv[])
     }
     else
     {
-        printf("Waiting the %s to echo back...\n", server);
+        printf_debug("Waiting the %s to echo back...\n", server);
     }
 
 
 //    exit(0);
-
-   while( recvCPAPResponse( sd, buffer , BufferLength , 5 ) <= 0 );
-
-   exit(0);
-
-    unsigned char *x93=0;
-    int valid_length=0;
-    totalcnt = 0;
-    while( valid_length <5 && totalcnt < 10 )
+    char recv_buf[1024];
+    int recv_size;
+    do
     {
-
-        /* Wait for the server to echo the */
-        /* string by using the read() function. */
-        /***************************************/
-        /* Read data from the server. */
-        rc = read(sd, &buffer[totalcnt], BufferLength-totalcnt);
-        if(rc < 0)
-        {
-            perror("Client-read() error");
-            close(sd);
-            exit(-1);
-        }
-        else if (rc == 0)
-        {
-            printf("Server program has issued a close()\n");
-            close(sd);
-            exit(-1);
-        }
-        else
-        {
-            totalcnt += rc;
-            printData( buffer , totalcnt , ">>>>>\n");
-
-            if ( x93 == 0 )
-            {
-                int index;
-                for( index=0 ; index<totalcnt ; index++ )
-                    if ( buffer[index] == 0x93 ) x93=&buffer[index];
-            }
-            else
-                valid_length = totalcnt - ( x93 - buffer) ;
-        }
+        recv_size = recvCPAPResponse( sd, recv_buf , sizeof(recv_buf ) , buffer[1] , 5 );
+        if ( recv_size <= 0 )
+            write(sd, buffer , stdin_size );
     }
-    printf("Client-read() is OK\n");
-    //printf("Echoed data from the f***ing server: %s\n", buffer);
-    /* When the data has been read, close() */
-    /* the socket descriptor. */
-    /****************************************/
-    /* Close socket descriptor from client side. */
-    close(sd);
-    if ( x93 )
-    {
-        printf("no x93=%p\n",x93);
-        exit(0);
-    }
-    else
-        exit(1);
+    while( recv_size  <= 0 );
+
+    printData( recv_buf , recv_size , "" );
     return 0;
 }
