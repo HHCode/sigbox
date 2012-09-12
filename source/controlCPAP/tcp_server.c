@@ -44,7 +44,7 @@ int read_socket( int connect_fd , char *buffer )
     int ret;
     fd_set read_fdset;
     struct timeval timeout;
-    timeout.tv_sec = 15;
+    timeout.tv_sec = 2;
     timeout.tv_usec = 0;
 
     /* The select() function allows the process to */

@@ -65,7 +65,7 @@ int rs232_recv( int handle , char *data , int size )
     FD_SET(handle, &fdest);
 
     timeout.tv_sec = 0;
-    timeout.tv_usec = 10000;
+    timeout.tv_usec = 500000;
 
     if ( handle != -1 )
 	{
@@ -80,8 +80,8 @@ int rs232_recv( int handle , char *data , int size )
                     err = read( handle , data , size );
 					if ( err < 0 )
 					{
-						if (errno != EINTR && errno != EAGAIN )
-							perror( "error when read rs232\n" );
+//						if (errno != EINTR && errno != EAGAIN )
+                    //        perror( "error when read" );
 					}
 
 					if ( rs232_dbg == 'Y' )
@@ -101,7 +101,7 @@ int rs232_recv( int handle , char *data , int size )
             }
             else if ( err < 0 )
 			{
-				perror("rs232_recv");
+                perror("recv");
                 printf_debug("read error\n");
 				if ( Retry-- <= 0 )
 				{

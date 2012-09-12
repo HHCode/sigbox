@@ -20,6 +20,7 @@ typedef struct{
     UartID uart_id[TEST_UART_NUMBER];
     int is_background_free;
     int uart_fd;
+    int dont_reopen;
 
 }cpapGlobal;
 
@@ -28,13 +29,16 @@ static cpapGlobal cpap_global;
 
 static void tryToOpenCPAP( void )
 {
-    int retry;
-    for( retry=10 ; retry>0 ; retry-- )
+    if ( cpap_global.dont_reopen == 0 )
     {
-        printf_error( "try to reopen uart %d\n", retry );
-        cpap_global.uart_fd = openCPAPDevice();
-        if ( cpap_global.uart_fd > 0 ) break;
-        sleep(1);
+        int retry;
+        for( retry=10 ; retry>0 ; retry-- )
+        {
+            printf_error( "try to reopen uart %d\n", retry );
+            cpap_global.uart_fd = openCPAPDevice();
+            if ( cpap_global.uart_fd > 0 ) break;
+            sleep(1);
+        }
     }
 }
 
@@ -54,8 +58,6 @@ int CPAP_recv( int descriptor , uint8_t *cmd , int cmd_length )
 
     if ( recv_return < 0 )
     {
-        perror( "read IO error" );
-
         tryToOpenCPAP();
 
         if ( descriptor >= 0 )
@@ -257,6 +259,11 @@ int isErrorCode( uint8_t test_byte )
     return 0;
 }
 
+void SetCPAPDontReopen( void )
+{
+    cpap_global.dont_reopen = 1;
+}
+
 int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLength , uint8_t cmd_byte , int expectedLength )
 {
     int recv_size=0;
@@ -325,7 +332,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
 
             if ( xor_byte != x93_cmd[expectedLength-1] )
             {
-                printf("xor should be 0x%x,but 0x%x\n" , xor_byte , x93_cmd[expectedLength-1] );
+                printf_debug("xor should be 0x%x,but 0x%x\n" , xor_byte , x93_cmd[expectedLength-1] );
                 return -1;
             }
 

@@ -62,33 +62,42 @@ int main( int argc , char **argv )
     int stdin_size=0;
     stdin_size = InputFromStdin( (char *)cmdBuffer , sizeof(cmdBuffer) );
 
-    int socket_fd;
-    socket_fd = TCP_ConnectToServer( server , port );
-
-    if ( TCP_Write( socket_fd , (char *)cmdBuffer , stdin_size ) == 0 )
+    int socket_fd=-1;
+    int recv_size=-1;
+    int nothing_times=3;
+    unsigned char responseBuffer[1024];
+    SetCPAPDontReopen();
+    do
     {
-        unsigned char responseBuffer[1024];
-        int recv_size;
-        do
+        if ( socket_fd == -1 )
+            socket_fd = TCP_ConnectToServer( server , port );
+
+        if ( TCP_Write( socket_fd , (char *)cmdBuffer , stdin_size ) == 0 )
         {
             recv_size = recvCPAPResponse( socket_fd , responseBuffer , sizeof( responseBuffer ) , cmdBuffer[1] , expected_length );
             if ( recv_size == READ_NOTHING )
             {
-                printf_error( "read nothing\n" );
-                break;
-            }
-            else
-            {
-                printf_error( "read error\n" );
-                break;
+                printf_debug( "read nothing , send again\n" );
+                if ( nothing_times-- <= 0 )
+                {
+                    close(socket_fd);
+                    socket_fd=-1;
+                    nothing_times=3;
+                }
             }
         }
-        while( recv_size <= 0 );
-
-        printData( (char *)responseBuffer , recv_size , "" );
+        else
+        {
+            close(socket_fd);
+            socket_fd=-1;
+        }
     }
+    while( recv_size <= 0 );
 
-
+    if ( recv_size < 0 )
+        exit(1);
+    printData( (char *)responseBuffer , recv_size , "" );
+    exit(0);
 #else
 
     if ( argc == 2 )
