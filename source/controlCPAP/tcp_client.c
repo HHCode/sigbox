@@ -17,83 +17,108 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "cpap.h"
+#include "common.h"
+
 /* BufferLength is 100 bytes */
 #define BufferLength 100
 /* Default host name of server system. Change it to your default */
 /* server hostname or IP.  If the user do not supply the hostname */
 /* as an argument, the_server_name_or_IP will be used as default*/
 #define SERVER "The_server_name_or_IP"
-/* Server's port number */
-#define SERVPORT 9527
 
-int port=SERVPORT;
 
-int debug=0;
-
-int getCmdFromStdin( char *cmdBuffer , int bufferSize )
+int TCP_Read( int descriptor , char *data , int size )
 {
-    int intputCount=0;
-    char inputFromStdIn;
+    int		err;
+    fd_set	fdest;
+    struct	timeval timeout;
 
+    FD_ZERO(&fdest);
+    FD_SET(descriptor, &fdest);
 
-    do
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 10000;
+
+    if ( descriptor != -1 )
     {
-        inputFromStdIn = getchar();
+        int Retry=100;
+        do{
+            err = select(descriptor+1, &fdest , NULL , NULL, &timeout );
 
-    //    printf_debug( "get 0x%x\n" , inputFromStdIn );
+            if (err > 0 )
+            {
+                if ( FD_ISSET( descriptor, &fdest ) )
+                {
+                    err = read( descriptor , data , size );
+                    if ( err < 0 )
+                    {
+                        if (errno != EINTR && errno != EAGAIN )
+                            perror( "error when read" );
+                    }
+                    return err;
+                }
+                else
+                    printf_debug("FD_ISSET=0\n");
+            }
+            else if ( err < 0 )
+            {
+                perror("recv");
+                printf_debug("read error\n");
+                if ( Retry-- <= 0 )
+                {
+                    break;
+                }
+            }
 
-        if ( inputFromStdIn == '\n' ) break;
+        }while( err < 0 && errno == EINTR );
 
-        cmdBuffer[intputCount++]=inputFromStdIn;
+    }
+
+    return 0;
+
+}
 
 
-        if (intputCount >= bufferSize )
+int TCP_Write( int descriptor , char *write_buffer , int write_length )
+{
+    int ret;
+    socklen_t length = sizeof(int);
+    char temp;
+
+    /* Send string to the server using */
+    /* the write() function. */
+    /*********************************************/
+    /* Write() some string to the server. */
+
+    ret = write(descriptor, write_buffer , write_length );
+
+    if(ret < 0)
+    {
+        perror("Client-write() error");
+        printf_error( "FD(%d) write error\n" , ret );
+        ret = getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &temp, &length);
+        if(ret == 0)
         {
-            printf_debug("input too long,should be less then %d\n" , sizeof(cmdBuffer ));
-            exit(1);
+            /* Print out the asynchronously received error. */
+            errno = temp;
+            perror("SO_ERROR was");
         }
-    }while( inputFromStdIn != '\n' );
+        close(descriptor);
+        return -1;
+    }
 
-    return intputCount;
+    return 0;
+
 }
 
 
 
-/* Pass in 1 parameter which is either the */
-/* address or host name of the server, or */
-/* set the server name in the #define SERVER ... */
-int main(int argc, char *argv[])
+int TCP_ConnectToServer( char *server , int port )
 {
-    if ( access( "/etc/debug" , 0 ) == 0 )
-        debug=1;
-
-    /* Variable and structure definitions. */
-    int sd, rc, length = sizeof(int);
+    int descriptor;
     struct sockaddr_in serveraddr;
-    unsigned char buffer[BufferLength];
-    char server[255];
-    char temp;
-    int totalcnt = 0;
     struct hostent *hostp;
-
-    if ( argc == 3)
-    {
-        strncpy( server , argv[1] , sizeof( server ) );
-        port = atoi( argv[2] );
-    }
-    else
-    {
-        printf_debug("example:tcp_client localhost 21\n");
-        exit(1);
-    }
-
-    int stdin_size;
-    stdin_size = getCmdFromStdin( buffer , sizeof(buffer));
-
-    if ( debug )
-        printData( buffer , stdin_size , "send\n");
-
+    int ret=0;
     /* The socket() function returns a socket */
     /* descriptor representing an endpoint. */
     /* The statement also identifies that the */
@@ -102,17 +127,17 @@ int main(int argc, char *argv[])
     /* will be used for this socket. */
     /******************************************/
     /* get a socket descriptor */
-    if((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if((descriptor = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         perror("Client-socket() error");
-        exit(-1);
+        return -1;
     }
     else
         printf_debug("Client-socket() OK\n");
 
     memset(&serveraddr, 0x00, sizeof(struct sockaddr_in));
     serveraddr.sin_family = AF_INET;
-    serveraddr.sin_port = htons(SERVPORT);
+    serveraddr.sin_port = htons(port);
 
     if((serveraddr.sin_addr.s_addr = inet_addr(server)) == (unsigned long)INADDR_NONE)
     {
@@ -130,9 +155,8 @@ int main(int argc, char *argv[])
             /* in netdb.h */
             printf_debug("h_errno = %d\n",h_errno);
             printf_debug("---This is a client program---\n");
-            printf_debug("Command usage: %s <server name or IP>\n", argv[0]);
-            close(sd);
-            exit(-1);
+            close(descriptor);
+            return -1;
         }
         memcpy(&serveraddr.sin_addr, hostp->h_addr, sizeof(serveraddr.sin_addr));
     }
@@ -142,52 +166,57 @@ int main(int argc, char *argv[])
     /* connection to the server. */
     /***********************************************/
     /* connect() to server. */
-    if((rc = connect(sd, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0)
+    if((ret = connect(descriptor, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0)
     {
         perror("Client-connect() error");
-        close(sd);
-        exit(-1);
+        close(descriptor);
+        return -1;
     }
     else
-        printf_debug("Connection established...\n");
+        printf_debug("FD(%d) Connection established...\n" , descriptor );
 
-    /* Send string to the server using */
-    /* the write() function. */
-    /*********************************************/
-    /* Write() some string to the server. */
+    return descriptor;
 
-    rc = write(sd, buffer , stdin_size );
+}
 
-    if(rc < 0)
+#if 0
+/* Pass in 1 parameter which is either the */
+/* address or host name of the server, or */
+/* set the server name in the #define SERVER ... */
+int main(int argc, char *argv[])
+{
+    /* Variable and structure definitions. */
+    int descriptor, ret;
+
+    unsigned char buffer[BufferLength];
+    char server[255];
+
+    if ( argc == 3)
     {
-        perror("Client-write() error");
-        rc = getsockopt(sd, SOL_SOCKET, SO_ERROR, &temp, &length);
-        if(rc == 0)
-        {
-            /* Print out the asynchronously received error. */
-            errno = temp;
-            perror("SO_ERROR was");
-        }
-        close(sd);
-        exit(-1);
+        strncpy( server , argv[1] , sizeof( server ) );
+        port = atoi( argv[2] );
     }
     else
     {
-        printf_debug("Waiting the %s to echo back...\n", server);
+        printf_debug("example:tcp_client localhost 21\n");
+        exit(1);
     }
 
+    int stdin_size;
+    stdin_size = InputFromStdin( buffer , sizeof(buffer));
 
-//    exit(0);
-    char recv_buf[1024];
-    int recv_size;
-    do
-    {
-        recv_size = recvCPAPResponse( sd, recv_buf , sizeof(recv_buf ) , buffer[1] , 5 );
-        if ( recv_size <= 0 )
-            write(sd, buffer , stdin_size );
-    }
-    while( recv_size  <= 0 );
+    if ( debug )
+        printData( buffer , stdin_size , "send\n");
 
-    printData( recv_buf , recv_size , "" );
+    int descriptor;
+    descriptor = TCP_ConnectToServer( server , port );
+
+    TCP_Write( descriptor , buffer , stdin_size );
+
+    int read_length;
+    read_length = TCP_Read( descriptor , buffer , sizeof( buffer) );
+
     return 0;
 }
+#endif
+

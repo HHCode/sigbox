@@ -10,8 +10,8 @@ endif
 
 EXE := cpapd controlCPAP
 
-controlCPAP:sendCPAPCmd.c $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+controlCPAP:sendCPAPCmd.c tcp_client.c $(OBJS)
+	$(CC) $(CFLAGS) -DCONTROL_CPAP_WITH_SOCKET -o $@ $^ -lpthread
 
 cpapd:cpapd.c dac.c socket2uart.c tcp_server.c $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread
