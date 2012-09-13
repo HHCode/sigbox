@@ -1,8 +1,0 @@
-PATH=$PATH:/sbin:/usr/bin:/var/www
-
-UART=/dev/tcc-uart0
-stty -F $UART raw speed 115200
-while true; do
-    READ=`/nand2/root/usr/bin/printLine.out $UART`
-    $READ > $UART
-done
