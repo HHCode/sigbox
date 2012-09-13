@@ -4,6 +4,7 @@
 #include <cpap.h>
 #include <rs232.h>
 #include <tcp_client.h>
+#include <signal.h>
 
 int debug;
 
@@ -35,11 +36,17 @@ int InputFromStdin( char *cmdBuffer , int bufferSize )
     return stdin_size;
 }
 
+
+void sigpipe_handler(int sig)
+{
+
+}
+
 int main( int argc , char **argv )
 {
     if ( access( "/etc/debug" , 0 ) == 0 )
         debug=1;
-
+    signal(SIGPIPE, sigpipe_handler);
     int expected_length;
     uint8_t cmdBuffer[128];
 
@@ -72,25 +79,21 @@ int main( int argc , char **argv )
         if ( socket_fd == -1 )
             socket_fd = TCP_ConnectToServer( server , port );
 
-        if ( TCP_Write( socket_fd , (char *)cmdBuffer , stdin_size ) == 0 )
+        do
         {
-            recv_size = recvCPAPResponse( socket_fd , responseBuffer , sizeof( responseBuffer ) , cmdBuffer[1] , expected_length );
-            if ( recv_size == READ_NOTHING )
+            if ( TCP_Write( socket_fd , (char *)cmdBuffer , stdin_size ) == 0 )
             {
-                printf_debug( "read nothing , send again\n" );
-                if ( nothing_times-- <= 0 )
+                recv_size = recvCPAPResponse( socket_fd , responseBuffer , sizeof( responseBuffer ) , cmdBuffer[1] , expected_length );
+                if ( recv_size == READ_NOTHING )
                 {
-                    close(socket_fd);
-                    socket_fd=-1;
-                    nothing_times=3;
+                    printf_debug( "read nothing , send again %d\n" , nothing_times );
                 }
             }
         }
-        else
-        {
-            close(socket_fd);
-            socket_fd=-1;
-        }
+        while(  recv_size == READ_NOTHING && nothing_times-- > 0 );
+
+        close( socket_fd );
+        socket_fd=-1;
     }
     while( recv_size <= 0 );
 

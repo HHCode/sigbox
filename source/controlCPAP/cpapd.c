@@ -15,6 +15,7 @@
 #include <sys/time.h>
 #include "socket2uart.h"
 #include <sys/wait.h>
+#include <signal.h>
 
 int debug=0;
 
@@ -514,8 +515,15 @@ int is_socket2uart_timeout( struct timeval *connect_time )
     return 0;
 }
 
+static void sigpipe_handler(int sig)
+{
+
+}
+
+
 int cpapd( void )
 {
+    signal(SIGPIPE, sigpipe_handler);
     initDAC();
 
     struct timeval connect_time;
@@ -541,10 +549,12 @@ int cpapd( void )
         {
             if ( is_socket2uart_timeout( &connect_time ) > 1000000 )
             {
+                printf_debug("close client since 1s time out\n");
                 socket2uart_closeForced( &socket_to_uart );
             }
             else if ( is_socket2uart_timeout( &connect_time ) > 500000 )
             {
+                printf_debug("set permit invalid\n");
                 socket2uart_setExecutePermit( &socket_to_uart , 0 );
             }
         }
@@ -608,3 +618,5 @@ int main( int argc , char **argv )
 
     return 0;
 }
+
+
