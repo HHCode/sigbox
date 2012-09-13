@@ -1,0 +1,21 @@
+#!/bin/sh
+
+. ./commonScript
+
+head
+
+connectName=`parse name $QUERY_STRING`
+
+if [ ! -e ./connectUser ];then
+    if [ "$connectName" != "" ];then
+        echo $connectName > ./connectUser
+        echo "OK connect $connectName"
+    else
+        echo "FAILED please input connect name"
+    fi
+else
+    connectUser=`cat ./connectUser`
+    echo "FAILED already connect by $connectUser"
+fi
+
+rear

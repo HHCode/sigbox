@@ -1,0 +1,19 @@
+#!/bin/bash
+
+. ./bashlib
+
+#printenv
+
+if [ "$REQUEST_METHOD" == "POST" ];then
+cat << EOF
+HTTP/1.0 100 continue
+
+EOF
+    dd bs=1 count=$CONTENT_LENGTH of=signalBox.cfg
+    echo OK signalBox.cfg
+else
+    head
+    echo FAILED
+    echo example:
+    echo "curl --data-binary @sigbox.tgz http://127.0.0.1/upload -v"
+fi
