@@ -1,0 +1,23 @@
+#!/bin/sh
+
+. ./commonScript
+
+head
+
+disconnectUserName=`parse name $QUERY_STRING`
+
+if [ ! -e ./connectUser ];then
+    echo "FAILED plz connect first"
+else
+    connectUser=`cat ./connectUser`
+    if [ "$connectUser" == "$disconnectUserName" ];then
+        rm -rf ./connectUser
+        echo "OK disconnect $disconnectUserName"
+    else
+        echo "FAILED already connect by $connectUser"
+    fi
+fi
+
+rear
+
+

