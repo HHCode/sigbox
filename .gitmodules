@@ -4,6 +4,3 @@
 [submodule "source/package/thttpd"]
 	path = source/package/thttpd
 	url = ../repositories/thttpd.git
-[submodule "filesys"]
-	path = filesys
-	url = ../repositories/filesys.git
