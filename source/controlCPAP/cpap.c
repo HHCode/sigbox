@@ -34,6 +34,7 @@ static void tryToOpenCPAP( void )
         printf_error( "try to reopen uart %d\n", retry );
         cpap_global.uart_fd = openCPAPDevice();
         if ( cpap_global.uart_fd > 0 ) break;
+        sleep(1);
     }
 }
 
@@ -227,8 +228,16 @@ int openCPAPDevice( void )
             pthread_join( threadTestUART[uartIndex] , 0 );
     }
 
-    printf_debug("use descriptor:%d\n", GetCPAPDescriptor() );
-    return GetCPAPDescriptor();
+    int use_descriptor=GetCPAPDescriptor();
+
+    if ( use_descriptor > 0 )
+    {
+        printf_debug( "use descriptor:%d\n" , use_descriptor );
+
+    }else{
+        printf_debug("cant find any cpap device\n" );
+    }
+    return use_descriptor;
 }
 
 

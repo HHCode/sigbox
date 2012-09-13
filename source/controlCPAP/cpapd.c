@@ -525,12 +525,11 @@ int cpapd( void )
     Init_socket2uart( &socket_to_uart );
     while(1)
     {
-        int uart2DA_result=0;
         if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
         {
             connect_time.tv_sec = 0;
             Duty_End();
-            uart2DA_result=ExecuteSeriesCommand( );
+            ExecuteSeriesCommand( );
             Duty_Start();
         }
         else if ( connect_time.tv_sec == 0 )
@@ -583,10 +582,9 @@ int main( int argc , char **argv )
 
     socket_to_uart.port=SERVPORT;
 
-    if ( argc == 3)
+    if ( argc == 2)
     {
         socket_to_uart.port = atoi( argv[1] );
-        strncpy( socket_to_uart.uart_name , argv[2] , sizeof( socket_to_uart.uart_name) );
     }
     else
     {

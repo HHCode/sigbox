@@ -1,2 +1,2 @@
-set args 9527 /dev/ttyUSB1
+set args 9527
 handle SIGPIPE noprint

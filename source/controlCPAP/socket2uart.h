@@ -6,7 +6,6 @@
 typedef struct{
 
     int port;
-    char uart_name[32];
     int listen_fd;
     int connect_fd;
     pthread_t relay_thread_handle;
