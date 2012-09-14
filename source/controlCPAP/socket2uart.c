@@ -99,6 +99,15 @@ void socket2uart_SetReconnected( Socket2Uart *socket_to_uart )
     pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
 }
 
+
+
+void socket2uart_SetStatusString( Socket2Uart *socket_to_uart , char *status_string )
+{
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+    strncpy( socket_to_uart->status_string , status_string , sizeof(socket_to_uart->status_string) );
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+}
+
 static int DisconnectIfNoPermit( Socket2Uart *socket_to_uart )
 {
 
@@ -153,7 +162,7 @@ void *relay_uart_to_socket( void *param )
                 {
                     char message[32];
                     sprintf( message , "socket[%d] <<< " , socket_to_uart->connect_fd );
-                    printData( (char *)buffer , read_size , message );
+                    printData( (char *)buffer , read_size , message , 1  );
                 }
 
                 write_size = write( socket_to_uart->connect_fd , buffer , read_size );
@@ -244,9 +253,13 @@ int socket2uart( Socket2Uart *socket_to_uart )
             if ( debug )
             {
                 printf_debug( "socket[%d] >>> uart\n" , socket_to_uart->connect_fd );
-                printData( buffer , read_size , "" );
+                printData( buffer , read_size , "" , 1  );
             }
 
+            if ( strstr( buffer , "status" ) )
+            {
+                write( socket_to_uart->connect_fd , socket_to_uart->status_string , strlen( socket_to_uart->status_string ));
+            }
             if ( CPAP_send( 0 , buffer , read_size ) >= 0 )
             {
                 //note the uart-to-socket thread to read uart

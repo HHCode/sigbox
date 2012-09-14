@@ -382,7 +382,7 @@ int cpap2psg( CPAPCommand *command )
             if ( debug )
             {
                 printf_debug("CPAPSendCommand error\n");
-                printData( (char *)command->recv_buffer , command->recv_length , "send data error\n");
+                printData( (char *)command->recv_buffer , command->recv_length , "send data error\n" , 1 );
             }
             continue;
         }
@@ -396,7 +396,7 @@ int cpap2psg( CPAPCommand *command )
         ret=0;
 
         if ( debug && command->recv_length > 0 )
-            printData( (char *)command->recv_buffer , command->recv_length , "uart >>>");
+            printData( (char *)command->recv_buffer , command->recv_length , "uart >>>" , 1 );
 
         if ( command->output_DA )
         {
@@ -462,6 +462,55 @@ int GetCommandFromFIFO( int fifoFD , char *command_code , int buffer_size , int 
 }
 
 
+int IsCPAP( void )
+{
+    if ( command_list[MODE].recv_buffer[2] == 0 )
+        return 1;
+    else
+        return 0;
+}
+
+int GetTherapyPressure( void )
+{
+    return command_list[CPAP_PRESSURE].recv_buffer[2];
+}
+
+
+int GetRampTime( void )
+{
+    return command_list[RAMP].recv_buffer[2];
+}
+
+int GetRampStartPressure( void )
+{
+    return command_list[RAMP].recv_buffer[3];
+}
+
+int GetInitPressure( void )
+{
+    return command_list[APAP_PRESSURE].recv_buffer[2];
+}
+
+int GetMaxPressure( void )
+{
+    return command_list[APAP_PRESSURE].recv_buffer[3];
+}
+
+int GetMinPressure( void )
+{
+    return command_list[APAP_PRESSURE].recv_buffer[4];
+}
+
+
+int GetPVA( void )
+{
+    return command_list[PVA].recv_buffer[2];
+}
+
+int GetPVALevel( void )
+{
+    return command_list[PVA].recv_buffer[3];
+}
 
 
 int ExecuteSeriesCommand( void )
@@ -473,7 +522,7 @@ int ExecuteSeriesCommand( void )
     if  ( CPAPSendCommand( &command_list[MODE] ) < 0 )
         return -1;
 
-    if ( command_list[MODE].recv_buffer[2] == 0 )
+    if ( IsCPAP() )
     {
         printf_debug("detect CPAP mode\n");
         is_CPAP_mode = 1;
@@ -493,6 +542,31 @@ int ExecuteSeriesCommand( void )
 
         err=cpap2psg( &command_list[command_index] );
     }
+
+    char status_command[256];
+    if ( IsCPAP() )
+    {
+        snprintf( status_command , sizeof(status_command),"Mode=CPAP,TherapyPressure=%d,RampTime=%d,RampStartPressure=%d,PVA=%d,PVALevel=%d" ,
+                 GetTherapyPressure(),
+                 GetRampTime(),
+                 GetRampStartPressure(),
+                 GetPVA(),
+                 GetPVALevel()
+                 );
+    }
+    else
+    {
+        snprintf( status_command , sizeof(status_command) , "Mode=APAP,MaxPressure=%d,MinPressure=%d,InitPressure=%d,PVA=%d,PVALevel=%d" ,
+                 GetMaxPressure(),
+                 GetMinPressure(),
+                 GetInitPressure(),
+                 GetPVA(),
+                 GetPVALevel()
+                 );
+
+    }
+
+    socket2uart_SetStatusString( &socket_to_uart , status_command );
 
     return err;
 }

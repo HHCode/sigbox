@@ -41,7 +41,7 @@ int Duty_End( void )
 }
 
 
-void printData( char *data , int size , char *prefix )
+void printData( char *data , int size , char *prefix , int binary )
 {
     char printBuf[2048];
 
@@ -54,34 +54,35 @@ void printData( char *data , int size , char *prefix )
     {
 
         unsigned char *testedArray=( unsigned char * )data;
-#if 0
-        if ( isprint( testedArray[index] ) )
+        if ( binary == 0 )
         {
-            printBuf[stringLength++] = testedArray[index];
+            if ( isprint( testedArray[index] ) )
+            {
+                printBuf[stringLength++] = testedArray[index];
+            }
+            else
+            {
+                if ( testedArray[index] == 0x0d )
+                    stringLength += sprintf( &printBuf[stringLength] , "\\r," );
+                else if ( testedArray[index] == 0x0a )
+                    stringLength += sprintf( &printBuf[stringLength] , "\\n," );
+                else
+                {
+                    stringLength += sprintf( &printBuf[stringLength] , "0x%x," , testedArray[index] );
+                    binaryCount++;
+                }
+            }
+            if ( binaryCount > 10 )
+            {
+                strcpy( &printBuf[stringLength] , "..." );
+                break;
+            }
         }
         else
         {
-            if ( testedArray[index] == 0x0d )
-                stringLength += sprintf( &printBuf[stringLength] , "\\r," );
-            else if ( testedArray[index] == 0x0a )
-                stringLength += sprintf( &printBuf[stringLength] , "\\n," );
-            else
-            {
-                stringLength += sprintf( &printBuf[stringLength] , "0x%x," , testedArray[index] );
-                binaryCount++;
-            }
+            stringLength += sprintf( &printBuf[stringLength] , "0x%x," , testedArray[index] );
+            binaryCount++;
         }
-#else
-        stringLength += sprintf( &printBuf[stringLength] , "0x%x," , testedArray[index] );
-        binaryCount++;
-#endif
-#if 0
-        if ( binaryCount > 10 )
-        {
-            strcpy( &printBuf[stringLength] , "..." );
-            break;
-        }
-#endif
     }
     printf( "%s\n" , printBuf );
 }

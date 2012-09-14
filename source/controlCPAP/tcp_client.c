@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
     stdin_size = InputFromStdin( buffer , sizeof(buffer));
 
     if ( debug )
-        printData( buffer , stdin_size , "send\n");
+        printData( buffer , stdin_size , "send\n" , 1 );
 
     int descriptor;
     descriptor = TCP_ConnectToServer( server , port );

@@ -317,7 +317,7 @@ int rs232_read(int handle, char *buffer, long nLen)
 int rs232_write(int handle, char *buffer, long nLen)
 {
     if ( rs232_dbg == 'Y' )
-        printData( (char *)buffer , nLen , "");
+        printData( (char *)buffer , nLen , "" , 1 );
 
     return write (handle, buffer, nLen);
 }

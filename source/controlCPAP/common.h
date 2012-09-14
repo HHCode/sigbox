@@ -16,7 +16,7 @@ extern int debug;
     fprintf(stderr, "%s[%d]: "fmt, __FILE__, __LINE__, ##args); \
 }
 
-void printData( char *data , int size , char *prefix );
+void printData( char *data , int size , char *prefix , int binary );
 
 int Duty_End( void );
 void Duty_Start( void );

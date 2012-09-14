@@ -110,8 +110,13 @@ else
     CPAP_UART )
         HEX_CMD=`parse hex $QUERY_STRING`
         EXPECT_READ=`parse read $QUERY_STRING`
+
+    CPAP_STATUS )
+        HEX_CMD="status"
+        EXPECT_READ=0
+
     esac
-    echo -e "\x93$HEX_CMD\n" | /nand2/root/usr/bin/controlCPAP $EXPECT_READ
+    echo -e "\x93$HEX_CMD\n" | /nand2/root/usr/bin/controlCPAP localhost 25 $EXPECT_READ
 fi
 
 rm -rf /dev/shm/lock

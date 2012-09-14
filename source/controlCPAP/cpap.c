@@ -70,7 +70,7 @@ int CPAP_recv( int descriptor , uint8_t *cmd , int cmd_length )
     {
         char message[32];
         sprintf( message , "FD(%d) >>>\n" , descriptor );
-        printData( (char *)cmd , recv_return , message );
+        printData( (char *)cmd , recv_return , message , 1 );
     }
 
     return recv_return;
@@ -104,7 +104,7 @@ int CPAP_send( int descriptor , char *cmd , int cmd_length )
     {
         char message[32];
         sprintf( message , "FD(%d) <<<\n" , descriptor );
-        printData( cmd , cmd_length ,  message );
+        printData( cmd , cmd_length ,  message , 1  );
     }
 
     return 0;
@@ -381,5 +381,3 @@ int getchTimeOut( int timeout )
     // return 0 if STDIN is not ready to be read.
     return FD_ISSET(STDIN_FILENO, &fds);
 }
-
-

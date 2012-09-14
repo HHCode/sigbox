@@ -78,19 +78,39 @@ int main( int argc , char **argv )
     {
         if ( socket_fd == -1 )
             socket_fd = TCP_ConnectToServer( server , port );
+
+        if ( socket_fd < 0 )
+            exit(1);
+
         if ( TCP_Write( socket_fd , (char *)cmdBuffer , stdin_size ) == 0 )
         {
             do
             {
-                recv_size = recvCPAPResponse( socket_fd , responseBuffer , sizeof( responseBuffer ) , cmdBuffer[1] , expected_length );
-                if ( recv_size <= 0 && recv_size == READ_NOTHING )
+                if ( strstr( (char *)cmdBuffer , "status" ) )
                 {
-                    write( socket_fd , cmdBuffer , stdin_size );
-                    printf_debug( "read nothing , send again %d\n" , nothing_times );
-                    if ( nothing_times-- <= 0 )
+                    int retry=20;
+                    do{
+                        recv_size = TCP_Read( socket_fd , (char *)responseBuffer , sizeof( responseBuffer ) );
+                    }while( recv_size == 0 && retry-- > 0 );
+
+                    if ( recv_size < 0 )
                     {
-                        nothing_times=3;
+                        printf_debug( "read status error\n" );
                         break;
+                    }
+                }
+                else
+                {
+                    recv_size = recvCPAPResponse( socket_fd , responseBuffer , sizeof( responseBuffer ) , cmdBuffer[1] , expected_length );
+                    if ( recv_size <= 0 && recv_size == READ_NOTHING )
+                    {
+                        write( socket_fd , cmdBuffer , stdin_size );
+                        printf_debug( "read nothing , send again %d\n" , nothing_times );
+                        if ( nothing_times-- <= 0 )
+                        {
+                            nothing_times=3;
+                            break;
+                        }
                     }
                 }
             }
@@ -102,7 +122,7 @@ int main( int argc , char **argv )
 
     }while( recv_size <= 0 );
 
-    printData( (char *)responseBuffer , recv_size , "" );
+    printData( (char *)responseBuffer , recv_size , "" , 0 );
     exit(0);
 #else
 
