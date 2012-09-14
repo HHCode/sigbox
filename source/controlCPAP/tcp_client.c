@@ -57,7 +57,7 @@ int TCP_Read( int descriptor , char *data , int size )
                             printf_errno( "socket read error\n" );
                         }
                     }
-                    else
+                    else if ( err > 0 )
                     {
                         if ( debug )
                         {

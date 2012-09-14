@@ -26,6 +26,6 @@ int socket2uart_IsConnect( Socket2Uart *socket_to_uart );
 void socket2uart_setExecutePermit( Socket2Uart *socket_to_uart , int execution_permit );
 int socket2uart_getExecutePermit( Socket2Uart *socket_to_uart );
 void socket2uart_closeForced( Socket2Uart *socket_to_uart );
-int socket2uart_reconnected(Socket2Uart *socket_to_uart , int *connect_serial_number );
+int socket2uart_RefreshConnectID(Socket2Uart *socket_to_uart , int *connect_serial_number );
 void socket2uart_SetStatusString( Socket2Uart *socket_to_uart , char *status_string );
 #endif

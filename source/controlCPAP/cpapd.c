@@ -530,7 +530,7 @@ int ExecuteSeriesCommand( void )
     else
         printf_debug("detect APAP mode\n");
 
-    for( command_index=APAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
+    for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
     {
         //choose one of mode
         if ( is_CPAP_mode && command_index == APAP_PRESSURE )
@@ -544,30 +544,32 @@ int ExecuteSeriesCommand( void )
     }
 
     char status_command[256];
+    static uint32_t serial_number;
     if ( IsCPAP() )
     {
         //Mode=CPAP\n,TherapyPressure=%d\nRampTime=%d\nRampStartPressure=%d\nPVA=%d\nPVALevel=%d\n
-        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d" ,
+        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d" ,
                  GetTherapyPressure(),
                  GetRampTime(),
                  GetRampStartPressure(),
                   GetPVA()?"ON":"OFF",
-                 GetPVALevel()
+                 GetPVALevel(),
+                  serial_number++
                  );
     }
     else
     {
         //"Mode=APAP\n,MaxPressure=%d\nMinPressure=%d\nInitPressure=%d\nPVA=%d\nPVALevel=%d\n"
-        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d" ,
+        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d" ,
                  GetMaxPressure(),
                  GetMinPressure(),
                  GetInitPressure(),
                   GetPVA()?"ON":"OFF",
-                 GetPVALevel()
+                 GetPVALevel(),
+                 serial_number++
                  );
 
     }
-
     socket2uart_SetStatusString( &socket_to_uart , status_command );
 
     return err;
@@ -602,6 +604,7 @@ int cpapd( void )
     struct timeval connect_time;
     int socket2uart_permit=0;
     int serial_number=0;
+    int last_serial_number;
     signal(SIGPIPE, sigpipe_handler);
     initDAC();
     Init_CPAP();
@@ -611,7 +614,9 @@ int cpapd( void )
     {
         if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
         {
+            last_serial_number = serial_number;
             memset( &connect_time , 0 ,sizeof(connect_time));
+          //  usleep(10000);
 //            Duty_End();
             ExecuteSeriesCommand();
 //            Duty_Start();
@@ -624,7 +629,7 @@ int cpapd( void )
         }
         else
         {
-            if ( is_socket2uart_timeout( &connect_time ) > 1000000 )
+            if ( is_socket2uart_timeout( &connect_time ) > 2000000 )
             {
                 printf_error("close client since 1s time out\n");
                 socket2uart_closeForced( &socket_to_uart );
@@ -635,7 +640,7 @@ int cpapd( void )
                 printf_debug("set permit invalid\n");
                 socket2uart_setExecutePermit( &socket_to_uart , 0 );
             }
-            else if ( socket2uart_reconnected( &socket_to_uart , &serial_number ) )
+            else if ( socket2uart_RefreshConnectID( &socket_to_uart , &serial_number ) )
                 memset( &connect_time , 0 ,sizeof(connect_time));
         }
 

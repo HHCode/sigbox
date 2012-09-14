@@ -126,17 +126,20 @@ int main( int argc , char **argv )
     int socket_fd=-1;
     int recv_size=-1;
     int nothing_times=3;
-    unsigned char responseBuffer[1024];
+    unsigned char responseBuffer[512];
     SetCPAPDontReopen();
 
 
-    uint8_t checkedXor;
-    checkedXor = getCheckedXor( (uint8_t *)cmdBuffer , stdin_size );
+    if ( strstr( (char *)cmdBuffer , "status" ) == 0 )
+    {
+        uint8_t checkedXor;
+        checkedXor = getCheckedXor( (uint8_t *)cmdBuffer , stdin_size );
 
-    cmdBuffer[stdin_size] = checkedXor;
-    stdin_size++;
+        cmdBuffer[stdin_size] = checkedXor;
+        stdin_size++;
+    }
 
-
+    int read_retry=20;
     do
     {
         if ( socket_fd == -1 )
@@ -152,6 +155,7 @@ int main( int argc , char **argv )
                 if ( strstr( (char *)cmdBuffer , "status" ) )
                 {
                     int retry=20;
+                    memset( responseBuffer , 0 , sizeof(responseBuffer) );
                     do{
                         recv_size = TCP_Read( socket_fd , (char *)responseBuffer , sizeof( responseBuffer ) );
                     }while( recv_size == 0 && retry-- > 0 );
@@ -161,6 +165,11 @@ int main( int argc , char **argv )
                         printf_debug( "read status error\n" );
                         break;
                     }
+                    else
+                    {
+                        printf("%s\n" , responseBuffer );
+                    }
+
                 }
                 else
                 {
@@ -179,12 +188,18 @@ int main( int argc , char **argv )
                     {
                         if ( ( recv_size > 1 ) || (recv_size == 1 && responseBuffer[0] == 0xe5) )
                         {
-                            printData( (char *)responseBuffer , recv_size , "OK\n" , 1 );
+                            if ( strstr( (char *)responseBuffer , "PAP" ) || strstr( (char *)responseBuffer , "FAILED" ) )
+                                printf("%s\n",responseBuffer);
+                            else
+                                printData( (char *)responseBuffer , recv_size , "OK\n" , 1 );
                         }
                     }
                 }
+
+                if ( read_retry < 1 )
+                    printf_debug( "retry socket recv but no response , reconnect again\n" );
             }
-            while( recv_size <= 0 );
+            while( recv_size <= 0 && read_retry-- > 0 );
         }
 
         close( socket_fd );
