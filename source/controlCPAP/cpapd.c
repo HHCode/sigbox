@@ -616,10 +616,8 @@ int cpapd( void )
         {
             last_serial_number = serial_number;
             memset( &connect_time , 0 ,sizeof(connect_time));
-          //  usleep(10000);
-//            Duty_End();
             ExecuteSeriesCommand();
-//            Duty_Start();
+            sleep(1);
         }
         else if ( connect_time.tv_sec == 0 )
         {
@@ -629,7 +627,7 @@ int cpapd( void )
         }
         else
         {
-            if ( is_socket2uart_timeout( &connect_time ) > 2000000 )
+            if ( is_socket2uart_timeout( &connect_time ) > 1000000 )
             {
                 printf_error("close client since 1s time out\n");
                 socket2uart_closeForced( &socket_to_uart );
