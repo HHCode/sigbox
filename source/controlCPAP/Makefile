@@ -5,10 +5,10 @@ ifdef DEBUG
     CFLAGS += -DDEBUG
 endif
 
-#CFLAGS += -DUNDEAD
+CFLAGS += -DUNDEAD
 
 
-EXE := cpapd controlCPAP
+EXE:=cpapd controlCPAP
 
 controlCPAP:sendCPAPCmd.c tcp_client.c $(OBJS)
 	$(CC) $(CFLAGS) -DCONTROL_CPAP_WITH_SOCKET -o $@ $^ -lpthread
@@ -25,8 +25,8 @@ socket2uart:tcp_server.c rs232.c socket2uart.c
 all:$(EXE)
 
 clean:
-	rm -rf *.out *.o
-	rm socket2uart cpapd controlCPAP
+	@rm -rf *.out *.o
+	@rm -rf socket2uart cpapd controlCPAP
 
 .PHONY : all clean controlCPAP cpapd
 

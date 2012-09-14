@@ -546,21 +546,23 @@ int ExecuteSeriesCommand( void )
     char status_command[256];
     if ( IsCPAP() )
     {
-        snprintf( status_command , sizeof(status_command),"Mode=CPAP,TherapyPressure=%d,RampTime=%d,RampStartPressure=%d,PVA=%d,PVALevel=%d" ,
+        //Mode=CPAP\n,TherapyPressure=%d\nRampTime=%d\nRampStartPressure=%d\nPVA=%d\nPVALevel=%d\n
+        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d" ,
                  GetTherapyPressure(),
                  GetRampTime(),
                  GetRampStartPressure(),
-                 GetPVA(),
+                  GetPVA()?"ON":"OFF",
                  GetPVALevel()
                  );
     }
     else
     {
-        snprintf( status_command , sizeof(status_command) , "Mode=APAP,MaxPressure=%d,MinPressure=%d,InitPressure=%d,PVA=%d,PVALevel=%d" ,
+        //"Mode=APAP\n,MaxPressure=%d\nMinPressure=%d\nInitPressure=%d\nPVA=%d\nPVALevel=%d\n"
+        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d" ,
                  GetMaxPressure(),
                  GetMinPressure(),
                  GetInitPressure(),
-                 GetPVA(),
+                  GetPVA()?"ON":"OFF",
                  GetPVALevel()
                  );
 
