@@ -270,6 +270,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
     int retry=20;
     int recv_return;
     uint8_t *x93_cmd=0;
+    uint8_t *e5=0;
     int valid_length=0;
     int index;
     uint8_t error_code=0;
@@ -279,7 +280,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
 
         recv_size += recv_return;
 
-        if ( isErrorCode( responseBuffer[0] ) )
+        if ( responseBuffer[0] != 0xe5 && isErrorCode( responseBuffer[0] ) )
         {
             valid_length=1;
             error_code=responseBuffer[0];
@@ -287,7 +288,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
         }
 
 
-        if ( x93_cmd == 0 )
+        if ( x93_cmd == 0 && e5 == 0 )
         {
             for( index=0 ; index<recv_size ; index++ )
             {
@@ -296,11 +297,18 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
                     x93_cmd = &responseBuffer[index];
                     printf_debug("find 0x93,0x%x at responseBuffer[%d]\n" , cmd_byte , ( x93_cmd - responseBuffer ) );
                 }
+                else if ( responseBuffer[index] == 0xe5 )
+                    e5=&responseBuffer[index];
+
             }
         }
         else
         {
-            valid_length = recv_size - ( x93_cmd - responseBuffer );
+            if ( x93_cmd )
+                valid_length = recv_size - ( x93_cmd - responseBuffer );
+
+            if ( e5 )
+                valid_length = 1;
         }
 
 
@@ -322,7 +330,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
     }
     else if ( recv_size > 0)
     {
-        if ( error_code == 0 )
+        if ( error_code == 0 && x93_cmd )
         {
             printf_debug( "fd:%d,expected value:%d,actually receive:%d\n" , io_fd ,  expectedLength , recv_size );
 
@@ -337,7 +345,13 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
             }
 
             memcpy( responseBuffer , x93_cmd , expectedLength );
+
             return expectedLength;
+        }
+        else if ( e5 )
+        {
+            responseBuffer[0]=0xe5;
+            return 1;
         }
     }
 

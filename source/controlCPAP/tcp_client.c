@@ -53,7 +53,18 @@ int TCP_Read( int descriptor , char *data , int size )
                     if ( err < 0 )
                     {
                         if (errno != EINTR && errno != EAGAIN )
-                            perror( "socket read error" );
+                        {
+                            printf_errno( "socket read error\n" );
+                        }
+                    }
+                    else
+                    {
+                        if ( debug )
+                        {
+                            char message[32];
+                            sprintf( message , "socket(%d) >>>\n" , descriptor );
+                            printData( data , err , message , 1 );
+                        }
                     }
                     return err;
                 }
@@ -62,8 +73,7 @@ int TCP_Read( int descriptor , char *data , int size )
             }
             else if ( err < 0 )
             {
-                perror("recv");
-                printf_debug("read error\n");
+                printf_errno( "socket read error\n"  );
                 if ( Retry-- <= 0 )
                 {
                     break;
@@ -94,17 +104,23 @@ int TCP_Write( int descriptor , char *write_buffer , int write_length )
 
     if(ret < 0)
     {
-        perror("Client-write() error");
-        printf_error( "FD(%d) write error\n" , ret );
+        printf_errno( "FD(%d) write error\n" , ret );
         ret = getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &temp, &length);
         if(ret == 0)
         {
             /* Print out the asynchronously received error. */
             errno = temp;
-            perror("SO_ERROR was");
+            printf_errno("SO_ERROR was\n");
         }
         close(descriptor);
         return -1;
+    }
+
+    if ( debug )
+    {
+        char message[32];
+        sprintf( message , "socket(%d) <<<\n" , descriptor );
+        printData( (char *)write_buffer , write_length , message , 1 );
     }
 
     return 0;
@@ -129,7 +145,7 @@ int TCP_ConnectToServer( char *server , int port )
     /* get a socket descriptor */
     if((descriptor = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
-        perror("Client-socket() error");
+        printf_errno("Client-socket() error\n");
         return -1;
     }
     else
@@ -168,7 +184,7 @@ int TCP_ConnectToServer( char *server , int port )
     /* connect() to server. */
     if((ret = connect(descriptor, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0)
     {
-        perror("Client-connect() error");
+        printf_errno("Client-connect() error\n");
         close(descriptor);
         return -1;
     }

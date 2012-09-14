@@ -1,6 +1,7 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include <errno.h>
 extern int debug;
 
 
@@ -15,6 +16,16 @@ extern int debug;
     fprintf(stderr, "FAILED\n" ); \
     fprintf(stderr, "%s[%d]: "fmt, __FILE__, __LINE__, ##args); \
 }
+
+
+#define printf_errno(fmt, args...) \
+    do {\
+    int backuped_errno=errno;\
+    char errstr[64];\
+    strerror_r( backuped_errno , errstr, sizeof(errstr));\
+    fprintf(stderr, "FAILED\n" ); \
+    fprintf(stderr, " ERROR  (%s|%s|%d): errno=%d ,%s : " fmt , __FILE__, __func__, __LINE__ , backuped_errno , errstr , ##args );\
+    } while(0)
 
 void printData( char *data , int size , char *prefix , int binary );
 

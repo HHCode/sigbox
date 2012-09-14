@@ -5,6 +5,7 @@
 #include <rs232.h>
 #include <tcp_client.h>
 #include <signal.h>
+#include <sys/resource.h>
 
 int debug;
 
@@ -42,8 +43,60 @@ void sigpipe_handler(int sig)
 
 }
 
+
+
+#define CORE_FILE_PATH "./"
+int SetCoreDump( void )
+{
+    struct rlimit CoreLimit;
+
+    getrlimit( RLIMIT_CORE , &CoreLimit );
+    printf_debug("GetCore:hard=%d,soft=%d\n",  (int)CoreLimit.rlim_max , (int)CoreLimit.rlim_cur );
+
+    CoreLimit.rlim_max=-1;
+    CoreLimit.rlim_cur=-1;
+    setrlimit( RLIMIT_CORE , &CoreLimit );
+    getrlimit( RLIMIT_CORE , &CoreLimit );
+
+    printf_debug("GetCore:hard=%d,soft=%d\n",  (int)CoreLimit.rlim_max , (int)CoreLimit.rlim_cur );
+
+
+    FILE *CorePid;
+    CorePid = fopen( "/proc/sys/kernel/core_uses_pid" , "w" );
+    if ( CorePid == 0 )
+    {
+        printf_errno("cant open core_uses_pid file\n");
+        return -1;
+    }
+    else
+    {
+        fprintf( CorePid , "0" );
+        printf_debug("/proc/sys/kernel/core_uses_pid=0\n" );
+        fclose( CorePid );
+    }
+
+
+    FILE *CorePath;
+    CorePath = fopen( "/proc/sys/kernel/core_pattern" , "w" );
+    if ( CorePath < 0 )
+    {
+        printf_errno("cant open proc file\n");
+        return -1;
+    }
+    else
+    {
+        fprintf( CorePath , "%s/core.%%e" , CORE_FILE_PATH);
+        printf("/proc/sys/kernel/core_pattern=%s/core.%%e\n",CORE_FILE_PATH );
+        fclose( CorePath );
+    }
+
+    return 0;
+}
+
+
 int main( int argc , char **argv )
 {
+    //SetCoreDump();
     if ( access( "/etc/debug" , 0 ) == 0 )
         debug=1;
     signal(SIGPIPE, sigpipe_handler);
@@ -67,6 +120,7 @@ int main( int argc , char **argv )
     }
 
     int stdin_size=0;
+    memset( cmdBuffer , 0 , sizeof( cmdBuffer ) );
     stdin_size = InputFromStdin( (char *)cmdBuffer , sizeof(cmdBuffer) );
 
     int socket_fd=-1;
@@ -74,6 +128,15 @@ int main( int argc , char **argv )
     int nothing_times=3;
     unsigned char responseBuffer[1024];
     SetCPAPDontReopen();
+
+
+    uint8_t checkedXor;
+    checkedXor = getCheckedXor( (uint8_t *)cmdBuffer , stdin_size );
+
+    cmdBuffer[stdin_size] = checkedXor;
+    stdin_size++;
+
+
     do
     {
         if ( socket_fd == -1 )
@@ -112,6 +175,13 @@ int main( int argc , char **argv )
                             break;
                         }
                     }
+                    else
+                    {
+                        if ( ( recv_size > 1 ) || (recv_size == 1 && responseBuffer[0] == 0xe5) )
+                        {
+                            printData( (char *)responseBuffer , recv_size , "OK\n" , 1 );
+                        }
+                    }
                 }
             }
             while( recv_size <= 0 );
@@ -122,7 +192,6 @@ int main( int argc , char **argv )
 
     }while( recv_size <= 0 );
 
-    printData( (char *)responseBuffer , recv_size , "" , 0 );
     exit(0);
 #else
 
