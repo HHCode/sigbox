@@ -267,7 +267,7 @@ void SetCPAPDontReopen( void )
 int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLength , uint8_t cmd_byte , int expectedLength )
 {
     int recv_size=0;
-    int retry=10;
+    int retry=20;
     int recv_return;
     uint8_t *x93_cmd=0;
     int valid_length=0;
@@ -294,7 +294,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
                 if (responseBuffer[index] == 0x93 && responseBuffer[index+1] == cmd_byte )
                 {
                     x93_cmd = &responseBuffer[index];
-                    printf_debug("find 0x93,%x at responseBuffer[%d]\n" , cmd_byte , ( x93_cmd - responseBuffer ) );
+                    printf_debug("find 0x93,0x%x at responseBuffer[%d]\n" , cmd_byte , ( x93_cmd - responseBuffer ) );
                 }
             }
         }

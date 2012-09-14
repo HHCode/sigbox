@@ -85,7 +85,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
     {
         command_number:CPAP_PRESSURE,
         name:"CPAP Pressure",           //A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
-        command_code:{0x93 , 0xcd},
+        command_code:{0x93 , 0xcb},
         command_length:2,
         expected_recv_length:5,                  //include xor
         output_DA:'0',
@@ -523,11 +523,11 @@ static void sigpipe_handler(int sig)
 
 int cpapd( void )
 {
+    struct timeval connect_time;
+    int socket2uart_permit=0;
+    int serial_number=0;
     signal(SIGPIPE, sigpipe_handler);
     initDAC();
-
-    struct timeval connect_time;
-
     Init_CPAP();
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
     Init_socket2uart( &socket_to_uart );
@@ -535,28 +535,32 @@ int cpapd( void )
     {
         if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
         {
-            connect_time.tv_sec = 0;
-            Duty_End();
-            ExecuteSeriesCommand( );
-            Duty_Start();
+            memset( &connect_time , 0 ,sizeof(connect_time));
+//            Duty_End();
+            ExecuteSeriesCommand();
+//            Duty_Start();
         }
         else if ( connect_time.tv_sec == 0 )
         {
             gettimeofday( &connect_time , 0 );
             socket2uart_setExecutePermit( &socket_to_uart , 1 );
+            socket2uart_permit = 1;
         }
         else
         {
             if ( is_socket2uart_timeout( &connect_time ) > 1000000 )
             {
-                printf_debug("close client since 1s time out\n");
+                printf_error("close client since 1s time out\n");
                 socket2uart_closeForced( &socket_to_uart );
             }
-            else if ( is_socket2uart_timeout( &connect_time ) > 500000 )
+            else if ( is_socket2uart_timeout( &connect_time ) > 500000 && socket2uart_permit == 1 )
             {
+                socket2uart_permit = 0;
                 printf_debug("set permit invalid\n");
                 socket2uart_setExecutePermit( &socket_to_uart , 0 );
             }
+            else if ( socket2uart_reconnected( &socket_to_uart , &serial_number ) )
+                memset( &connect_time , 0 ,sizeof(connect_time));
         }
 
         int channel;

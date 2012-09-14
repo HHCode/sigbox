@@ -62,7 +62,7 @@ int main( int argc , char **argv )
     }
     else
     {
-        printf_debug("example:socketCPAP localhost 21 $expected_length\n");
+        printf("example:socketCPAP localhost 21 $expected_length\n");
         exit(1);
     }
 
@@ -78,27 +78,30 @@ int main( int argc , char **argv )
     {
         if ( socket_fd == -1 )
             socket_fd = TCP_ConnectToServer( server , port );
-
-        do
+        if ( TCP_Write( socket_fd , (char *)cmdBuffer , stdin_size ) == 0 )
         {
-            if ( TCP_Write( socket_fd , (char *)cmdBuffer , stdin_size ) == 0 )
+            do
             {
                 recv_size = recvCPAPResponse( socket_fd , responseBuffer , sizeof( responseBuffer ) , cmdBuffer[1] , expected_length );
-                if ( recv_size == READ_NOTHING )
+                if ( recv_size <= 0 && recv_size == READ_NOTHING )
                 {
+                    write( socket_fd , cmdBuffer , stdin_size );
                     printf_debug( "read nothing , send again %d\n" , nothing_times );
+                    if ( nothing_times-- <= 0 )
+                    {
+                        nothing_times=3;
+                        break;
+                    }
                 }
             }
+            while( recv_size <= 0 );
         }
-        while(  recv_size == READ_NOTHING && nothing_times-- > 0 );
 
         close( socket_fd );
         socket_fd=-1;
-    }
-    while( recv_size <= 0 );
 
-    if ( recv_size < 0 )
-        exit(1);
+    }while( recv_size <= 0 );
+
     printData( (char *)responseBuffer , recv_size , "" );
     exit(0);
 #else

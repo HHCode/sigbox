@@ -13,6 +13,7 @@ typedef struct{
     pthread_cond_t condSocket2Uart;
     pthread_t threadSocket2Uart;
     int execution_permit;
+    int connect_serial_number;
 }Socket2Uart;
 
 void socket2uartRefreshUART( Socket2Uart *socket_to_uart , int uart_descriptor );
@@ -23,4 +24,5 @@ int socket2uart_IsConnect( Socket2Uart *socket_to_uart );
 void socket2uart_setExecutePermit( Socket2Uart *socket_to_uart , int execution_permit );
 int socket2uart_getExecutePermit( Socket2Uart *socket_to_uart );
 void socket2uart_closeForced( Socket2Uart *socket_to_uart );
+int socket2uart_reconnected(Socket2Uart *socket_to_uart , int *connect_serial_number );
 #endif

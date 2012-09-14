@@ -53,7 +53,7 @@ int TCP_Read( int descriptor , char *data , int size )
                     if ( err < 0 )
                     {
                         if (errno != EINTR && errno != EAGAIN )
-                            perror( "error when read" );
+                            perror( "socket read error" );
                     }
                     return err;
                 }

@@ -46,6 +46,14 @@ int socket2uart_IsConnect( Socket2Uart *socket_to_uart )
 void socket2uart_closeForced( Socket2Uart *socket_to_uart )
 {
     pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+
+    char *message = "sorced disconnect client\n";
+    printf_debug( "%s" , message );
+
+    if ( debug )
+    {
+        write( socket_to_uart->connect_fd , message , strlen(message));
+    }
     close( socket_to_uart->connect_fd );
     socket_to_uart->connect_fd=-1;
     pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
@@ -66,6 +74,54 @@ int socket2uart_getExecutePermit( Socket2Uart *socket_to_uart )
     pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
 
     return permit;
+}
+
+
+int socket2uart_reconnected( Socket2Uart *socket_to_uart , int *connect_serial_number )
+{
+    int reconnected=0;
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+    if ( *connect_serial_number != socket_to_uart->connect_serial_number )
+    {
+        *connect_serial_number=socket_to_uart->connect_serial_number;
+        reconnected=1;
+    }
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+
+    return reconnected;
+}
+
+
+void socket2uart_SetReconnected( Socket2Uart *socket_to_uart )
+{
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+    socket_to_uart->connect_serial_number++;
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+}
+
+static int DisconnectIfNoPermit( Socket2Uart *socket_to_uart )
+{
+
+    int retry=3;
+    //Wait permit from cpapd. about 0.5s will be timeout
+    while( socket2uart_getExecutePermit( socket_to_uart ) == 0 && retry-- > 0 )
+        usleep( 100000 );
+    if ( retry <=0 )
+    {
+        char *message = "close client due to no permit\n";
+        printf_debug( "%s" , message );
+
+        if ( debug )
+        {
+            write( socket_to_uart->connect_fd , message , strlen(message));
+            usleep( 100000 );
+        }
+
+        socket2uart_closeForced( socket_to_uart );
+        return 0;
+    }
+
+    return -1;
 }
 
 void *relay_uart_to_socket( void *param )
@@ -89,11 +145,17 @@ void *relay_uart_to_socket( void *param )
 
         while( socket_to_uart->connect_fd >= 0)
         {
-            printf_debug( "socket[%d] <<< uart\n" , socket_to_uart->connect_fd );
+            read_size = CPAP_recv( 0 , buffer , sizeof(buffer) );
 
-            read_size = CPAP_recv( 0 , buffer , sizeof(buffer)  );
             if ( read_size > 0 )
             {
+                if ( debug )
+                {
+                    char message[32];
+                    sprintf( message , "socket[%d] <<< " , socket_to_uart->connect_fd );
+                    printData( (char *)buffer , read_size , message );
+                }
+
                 write_size = write( socket_to_uart->connect_fd , buffer , read_size );
 
                 if ( write_size < 0 )
@@ -101,7 +163,7 @@ void *relay_uart_to_socket( void *param )
                     if ( socket_to_uart->connect_fd >= 0 )
                         close ( socket_to_uart->connect_fd );
                     socket_to_uart->connect_fd = -1;
-                    printf_error( "write to socket error\n" );
+                    printf_debug( "write to socket error\n" );
                     break;
                 }
             }
@@ -111,6 +173,19 @@ void *relay_uart_to_socket( void *param )
                 write( socket_to_uart->connect_fd , ret_message , strlen(ret_message) );
                 break;
             }
+            else
+                printf_debug( "read_size=0\n" );
+
+            if ( DisconnectIfNoPermit( socket_to_uart ) == 0 )
+            {
+                printf_debug( "relay too long\n" );
+                break;
+            }
+        }
+
+        if ( read_size <= 0 )
+        {
+            printf_debug( "relay uart to socket failed, read_size=%d\n" , read_size );
         }
     }
 
@@ -123,87 +198,41 @@ int socket2uart( Socket2Uart *socket_to_uart )
 
     socket_to_uart->relay_thread_handle = -1;
     socket_to_uart->listen_fd = -1;
+    socket_to_uart->connect_fd = -1;
     pthread_cond_init( &socket_to_uart->condSocket2Uart , 0 );
     pthread_mutex_init( &socket_to_uart->mutexSocket2Uart , 0);
 
     while(1)
     {
-        socket_to_uart->connect_fd = -1;
         socket_to_uart->connect_fd = start_tcp_server( &socket_to_uart->listen_fd , socket_to_uart->port );
-
-        int retry=20;
-        //Wait permit from cpapd. about 0.5s will be timeout
-        while( socket2uart_getExecutePermit( socket_to_uart ) == 0 && retry-- > 0 )
-            usleep( 50000 );
-        if ( retry <=0 )
-        {
-            socket2uart_closeForced( socket_to_uart );
-            continue;
-        }
 
         if ( socket_to_uart->relay_thread_handle == -1 )
             pthread_create( &socket_to_uart->relay_thread_handle , 0 ,  relay_uart_to_socket , socket_to_uart );
 
-        if ( socket_to_uart->connect_fd < 0 )
-            printf_error( "the listen socket error\n" );
+        if ( DisconnectIfNoPermit( socket_to_uart ) == 0 )
+        {
+            printf_debug( "no permit, maybe ExecuteSeriesCommand take long time\n" );
+            continue;
+        }
 
+        if ( socket_to_uart->connect_fd < 0 )
+        {
+            printf_error( "the listen socket error\n" );
+            continue;
+        }
+
+        socket2uart_SetReconnected( socket_to_uart );
 
         do{
-#ifdef GENIUSTOM_PROTOCOL
-            int read_size=0;
-            int crlf=-1;
-            int total_size=0;
-            int cmd_start_index=-1;
-            int buffer_index=0;
-            char command[1024];
-
-            bzero( buffer , sizeof(buffer));
-
-            while( crlf == -1 )
+            if ( DisconnectIfNoPermit( socket_to_uart ) == 0 )
             {
-                read_size = read_socket( socket_to_uart->connect_fd , &buffer[total_size] );
-
-                if ( read_size < 0 )
-                    break;
-                else if ( read_size == 0 )
-                    continue;
-
-                total_size+=read_size;
-
-
-                if ( debug )
-                {
-                    printData( buffer , total_size , "socket >>>\n" );
-                }
-
-                if ( cmd_start_index == -1 )
-                {
-                    for( buffer_index=0 ; buffer_index<total_size ; buffer_index++ )
-                    {
-                        if ( buffer[buffer_index] == 0x93 )
-                        {
-                            cmd_start_index=buffer_index;
-                            break;
-                        }
-                    }
-                }
-
-                for( buffer_index=0 ; buffer_index<total_size ; buffer_index++ )
-                {
-                    if ( buffer[buffer_index] == '\n' && buffer[buffer_index-1] == '\r' )
-                    {
-                        crlf=buffer_index-1;
-                        break;
-                    }
-                }
+                printf_debug( "socket2uart too long\n" );
+                break;
             }
 
-            int command_size=buffer_index-cmd_start_index;
-            memcpy( command , &buffer[cmd_start_index] , command_size );
-#else
             int read_size;
             read_size = read_socket( socket_to_uart->connect_fd , buffer );
-#endif
+
             if ( read_size < 0 )
                 break;
             else if ( read_size == 0 )

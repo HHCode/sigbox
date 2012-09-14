@@ -44,7 +44,7 @@ int read_socket( int connect_fd , char *buffer )
     int ret;
     fd_set read_fdset;
     struct timeval timeout;
-    timeout.tv_sec = 2;
+    timeout.tv_sec = 1;
     timeout.tv_usec = 0;
 
     /* The select() function allows the process to */
@@ -75,7 +75,7 @@ int read_socket( int connect_fd , char *buffer )
         }
         else if (ret == 0)
         {
-            printf_error("Client program has issued a close()\n");
+            printf_debug("Client program has issued a close()\n");
             return -1;
         }
         else
@@ -91,7 +91,7 @@ int read_socket( int connect_fd , char *buffer )
     /* ret == 0 */
     else
     {
-        printf_error("Server-select() timed out.\n");
+        printf_debug("Server-select() timed out.\n");
         return 0;
     }
 
@@ -199,8 +199,7 @@ int start_tcp_server( int *listen_fd , int port )
         printf_debug("Server-accept() is OK\n");
 
     /*client IP*/
-    printf_debug("Server-new socket, *connect_fd is OK...\n");
-    printf_debug("Got connection from the f***ing client: %s\n", (char *)inet_ntoa(their_addr.sin_addr));
+    printf_debug("Got connection from client: %s\n", (char *)inet_ntoa(their_addr.sin_addr));
 
     return connect_fd;
 }

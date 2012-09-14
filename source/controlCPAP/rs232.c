@@ -9,13 +9,7 @@
 
 #include "rs232.h"
 #include "sys/ioctl.h"
-
-
-#ifdef DEBUG
-#define printf_debug(fmt, args...) printf("%s[%d]: "fmt, __FUNCTION__, __LINE__, ##args)
-#else
-#define printf_debug(fmt, args...)
-#endif
+#include "common.h"
 
 
 /* Global data: */
@@ -27,18 +21,6 @@ static	char rs232_dbg='Y';
 static	char rs232_dbg='N';
 #endif
 
-
-void print_data( unsigned char *data , int size )
-{
-    int i;
-    for( i=0 ; i<size ; i++ )
-    {
-//        if ( isalpha( data[i] ) )
-//            printf("%c",data[i]);
-//        else
-        printf("0x%X," , data[i] );
-    }
-}
 
 /**
  * @brief rs232_recv
@@ -65,7 +47,7 @@ int rs232_recv( int handle , char *data , int size )
     FD_SET(handle, &fdest);
 
     timeout.tv_sec = 0;
-    timeout.tv_usec = 500000;
+    timeout.tv_usec = 20000;
 
     if ( handle != -1 )
 	{
@@ -80,21 +62,12 @@ int rs232_recv( int handle , char *data , int size )
                     err = read( handle , data , size );
 					if ( err < 0 )
 					{
-//						if (errno != EINTR && errno != EAGAIN )
-                    //        perror( "error when read" );
-					}
-
-					if ( rs232_dbg == 'Y' )
-					{
-						if ( err > 0 )
-						{
-                            printf("recv: ");
-                            print_data( (unsigned char *)data , err );
-                            printf("\n");
-						}
-					
-					}
-					return err;
+                        if (errno != EINTR && errno != EAGAIN )
+                        {
+                            if ( debug ) perror( "rs232 read error" );
+                        }
+                    }
+                    return err;
 				}
 				else
 					printf("FD_ISSET=0\n");
@@ -344,7 +317,7 @@ int rs232_read(int handle, char *buffer, long nLen)
 int rs232_write(int handle, char *buffer, long nLen)
 {
     if ( rs232_dbg == 'Y' )
-        print_data( (unsigned char *)buffer , nLen );
+        printData( (char *)buffer , nLen , "");
 
     return write (handle, buffer, nLen);
 }
