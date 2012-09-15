@@ -191,7 +191,9 @@ int main( int argc , char **argv )
                             if ( strstr( (char *)responseBuffer , "PAP" ) || strstr( (char *)responseBuffer , "FAILED" ) )
                                 printf("%s\n",responseBuffer);
                             else
+                            {
                                 printData( (char *)responseBuffer , recv_size , "OK\n" , 1 );
+                            }
                         }
                     }
                 }

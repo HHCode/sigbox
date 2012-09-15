@@ -270,7 +270,7 @@ int socket2uart( Socket2Uart *socket_to_uart )
                 char output_status[256];
                 if ( strlen( socket_to_uart->status_string ) > 0 )
                 {
-                    snprintf( output_status , sizeof(output_status) , "OK\n%s" , socket_to_uart->status_string );
+                    snprintf( output_status , sizeof(output_status) , "STATUS\n%s" , socket_to_uart->status_string );
                 }
                 else
                 {
