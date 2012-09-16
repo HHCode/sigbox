@@ -334,7 +334,7 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
     switch( command_number )
     {
     case APAP_PRESSURE:
-        adjuested_value = (65535.0 / max_value )*recv_buffer[2];
+        adjuested_value = (65535.0 / max_value )*recv_buffer[5];
         break;
 
     case CPAP_PRESSURE:
@@ -513,6 +513,28 @@ int GetPVALevel( void )
 }
 
 
+int GetPatientFlow( void )
+{
+    int flow=command_list[PATIENT_FLOW].recv_buffer[3]<<8 | command_list[PATIENT_FLOW].recv_buffer[2];
+    return flow;
+}
+
+
+int GetLeak( void )
+{
+    int leak_value=command_list[LEAK].recv_buffer[3]<<8 | command_list[LEAK].recv_buffer[2];
+    return leak_value;
+}
+
+int GetPressure( void )
+{
+    if ( IsCPAP() )
+        return command_list[CPAP_PRESSURE].recv_buffer[2];
+    else
+        return command_list[APAP_PRESSURE].recv_buffer[5];
+}
+
+
 int ExecuteSeriesCommand( void )
 {
     int command_index;
@@ -548,25 +570,31 @@ int ExecuteSeriesCommand( void )
     if ( IsCPAP() )
     {
         //Mode=CPAP\n,TherapyPressure=%d\nRampTime=%d\nRampStartPressure=%d\nPVA=%d\nPVALevel=%d\n
-        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d" ,
-                 GetTherapyPressure(),
-                 GetRampTime(),
-                 GetRampStartPressure(),
+        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d,%d,%d,%d" ,
+                  GetTherapyPressure(),
+                  GetRampTime(),
+                  GetRampStartPressure(),
                   GetPVA()?"ON":"OFF",
-                 GetPVALevel(),
+                  GetPVALevel(),
+                  GetPressure(),
+                  GetLeak(),
+                  GetPatientFlow(),
                   serial_number++
                  );
     }
     else
     {
         //"Mode=APAP\n,MaxPressure=%d\nMinPressure=%d\nInitPressure=%d\nPVA=%d\nPVALevel=%d\n"
-        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d" ,
-                 GetMaxPressure(),
-                 GetMinPressure(),
-                 GetInitPressure(),
+        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d,%d,%d,%d" ,
+                  GetMaxPressure(),
+                  GetMinPressure(),
+                  GetInitPressure(),
                   GetPVA()?"ON":"OFF",
-                 GetPVALevel(),
-                 serial_number++
+                  GetPVALevel(),
+                  GetPressure(),
+                  GetLeak(),
+                  GetPatientFlow(),
+                  serial_number++
                  );
 
     }

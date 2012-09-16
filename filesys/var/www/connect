@@ -9,13 +9,13 @@ connectName=`parse name $QUERY_STRING`
 if [ ! -e ./connectUser ];then
     if [ "$connectName" != "" ];then
         echo $connectName > ./connectUser
-        echo "OK connect $connectName"
+        echo -e "FINISH\nconnect $connectName"
     else
-        echo "FAILED please input connect name"
+        echo -e "FAILED\nplease input connect name"
     fi
 else
     connectUser=`cat ./connectUser`
-    echo "FAILED already connect by $connectUser"
+    echo -e "FAILED\nalready connect by $connectUser"
 fi
 
 rear

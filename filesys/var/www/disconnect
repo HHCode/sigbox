@@ -7,14 +7,14 @@ head
 disconnectUserName=`parse name $QUERY_STRING`
 
 if [ ! -e ./connectUser ];then
-    echo "FAILED plz connect first"
+    echo -e "FAILED\nplz connect first"
 else
     connectUser=`cat ./connectUser`
     if [ "$connectUser" == "$disconnectUserName" ];then
         rm -rf ./connectUser
-        echo "OK disconnect $disconnectUserName"
+        echo -e "FINISH\ndisconnect $disconnectUserName"
     else
-        echo "FAILED already connect by $connectUser"
+        echo -e "FAILED\nalready connect by $connectUser"
     fi
 fi
 
