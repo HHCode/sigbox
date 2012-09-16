@@ -1,0 +1,16 @@
+#!/bin/sh
+
+. ./commonScript
+
+head
+
+connectName=`parse name $QUERY_STRING`
+
+if [ ! -e ./connectUser ];then
+    echo -e "FINISH\nyes"
+else
+    connectUser=`cat ./connectUser`
+    echo -e "FAILED\nalready connect by $connectUser"
+fi
+
+rear
