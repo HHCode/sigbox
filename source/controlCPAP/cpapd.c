@@ -402,7 +402,8 @@ int cpap2psg( CPAPCommand *command )
         {
             int adjustedValue;
             adjustedValue = GetDAValue( command->command_number , command->max_value , (char *)command->recv_buffer );
-            printf_debug( "%s >> DA: %x\n" , command->name , adjustedValue );
+            printf_debug( "%s:%c >> DA: 0x%x\n" , command->name , command->output_DA , adjustedValue );
+            writeDAC( command->output_DA-'0' , adjustedValue );
         }
 
         break;
