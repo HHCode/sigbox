@@ -6,15 +6,17 @@ head
 
 disconnectUserName=`parse name $QUERY_STRING`
 
-if [ ! -e ./connectUser ];then
+if [ ! -e ./connectStatus ];then
     echo -e "FAILED\nplz connect first"
 else
-    connectUser=`cat ./connectUser`
-    if [ "$connectUser" == "$disconnectUserName" ];then
-        rm -rf ./connectUser
-        echo -e "FINISH\ndisconnect $disconnectUserName"
+    connectStatus=`cat ./connectStatus`
+#    echo $connectStatus
+#    echo "${connectStatus%%,*} == $disconnectUserName"    
+    if [ "${connectStatus%%,*}" == "$disconnectUserName" ];then
+        rm -rf ./connectStatus
+        echo -e "FINISH\n$disconnectUserName"
     else
-        echo -e "FAILED\nalready connect by $connectUser"
+        printConnectStatus
     fi
 fi
 

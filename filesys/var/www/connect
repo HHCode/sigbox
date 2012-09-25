@@ -6,16 +6,16 @@ head
 
 connectName=`parse name $QUERY_STRING`
 
-if [ ! -e ./connectUser ];then
+if [ ! -e ./connectStatus ];then
     if [ "$connectName" != "" ];then
-        echo $connectName > ./connectUser
-        echo -e "FINISH\nconnect $connectName"
+    	connectDate=`date +%s`
+        echo -e "FINISH\n$connectName"
+        echo "$connectName,$connectDate" > ./connectStatus
     else
         echo -e "FAILED\nplease input connect name"
     fi
 else
-    connectUser=`cat ./connectUser`
-    echo -e "FAILED\nalready connect by $connectUser"
+    printConnectStatus
 fi
 
 rear

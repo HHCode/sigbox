@@ -40,4 +40,12 @@ killproc()
         killall $1
     fi
 }
-    
+
+
+printConnectStatus()
+{
+    connectStatus=`cat ./connectStatus`
+    connectStart=${connectStatus##*,}
+    connectSecond=$((`date +%s`-$connectStart))
+    echo -e "FAILED\n${connectStatus%%,*},$connectSecond"
+}                   
