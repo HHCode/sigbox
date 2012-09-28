@@ -207,8 +207,10 @@ int main( int argc , char **argv )
         close( socket_fd );
         socket_fd=-1;
 
-    }while( recv_size <= 0 );
+    }while( recv_size <= 0 && read_retry-- > 0 );
 
+    if ( read_retry <= 0 )
+        printf_error("command error\n");
     exit(0);
 #else
 
