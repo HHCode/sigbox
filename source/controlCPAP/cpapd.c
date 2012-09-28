@@ -334,10 +334,12 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
     switch( command_number )
     {
     case APAP_PRESSURE:
+        if ( recv_buffer[5] > max_value ) recv_buffer[5] = max_value;
         adjuested_value = (65535.0 / max_value )*recv_buffer[5];
         break;
 
     case CPAP_PRESSURE:
+        if ( recv_buffer[2] > max_value ) recv_buffer[2] = max_value;
         adjuested_value = (65535.0 / max_value )*recv_buffer[2];
         break;
 
@@ -345,14 +347,18 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
     {
         char low=recv_buffer[2];
         char hight=recv_buffer[3];
-        adjuested_value = (65535.0 / max_value )*( hight << 8 | low ) ;
+        uint8_t flow_integer=( hight << 8 | low );
+        if ( flow_integer > max_value ) flow_integer = max_value;
+        adjuested_value = (65535.0 / max_value )*( flow_integer ) ;
         break;
     }
     case LEAK:
     {
         char low=recv_buffer[2];
         char hight=recv_buffer[3];
-        adjuested_value = (65535.0 / max_value )*( hight << 8 | low ) ;
+        uint8_t leak_integer=( hight << 8 | low );
+        if ( leak_integer > max_value ) leak_integer = max_value;
+        adjuested_value = (65535.0 / max_value )*( leak_integer ) ;
         break;
     }
     default:
