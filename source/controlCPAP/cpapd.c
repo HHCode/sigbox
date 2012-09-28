@@ -89,7 +89,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,                  //include xor
         output_DA:'0',
-        max_value:30
+        max_value:200
 
     },
     {
@@ -99,7 +99,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:7,
         output_DA:'0',
-        max_value:30
+        max_value:200
     },
     {
         command_number:PATIENT_FLOW,
@@ -108,7 +108,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         output_DA:'1',
-        max_value:240
+        max_value:2400
     },
     {
         command_number:LEAK,
@@ -117,7 +117,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         output_DA:'2',
-        max_value:60
+        max_value:200
     },
     {
         command_number:RAMP,
