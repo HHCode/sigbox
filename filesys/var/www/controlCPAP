@@ -101,6 +101,7 @@ else
     CPAP_UART )
         HEX_CMD=`parse hex $QUERY_STRING`
         EXPECT_READ=`parse read $QUERY_STRING`
+        HEX_CMD=`reverseBackslash $HEX_CMD`
         ;;
     CPAP_GET_STATUS )
         echo -e "status" | /nand2/root/usr/bin/controlCPAP.out localhost 26 0
@@ -113,9 +114,8 @@ else
         then
             break
         fi
-        sleep 1
+        exit
     done
-    
-    echo -e "\x93$HEX_CMD\n" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 25 $EXPECT_READ
-fi
-
+   
+   echo -e "\x93$HEX_CMD" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 25 $EXPECT_READ
+fi 

@@ -48,4 +48,11 @@ printConnectStatus()
     connectStart=${connectStatus##*,}
     connectSecond=$((`date +%s`-$connectStart))
     echo -e "FAILED\n${connectStatus%%,*},$connectSecond"
-}                   
+}                  
+
+reverseBackslash()
+{
+echo "$1" | sed 's/\//\\/g'
+
+
+} 
