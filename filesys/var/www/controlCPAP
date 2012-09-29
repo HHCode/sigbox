@@ -103,9 +103,19 @@ else
         EXPECT_READ=`parse read $QUERY_STRING`
         ;;
     CPAP_GET_STATUS )
-        echo -e "status" | /nand2/root/usr/bin/controlCPAP 127.0.0.1 25 0
+        echo -e "status" | /nand2/root/usr/bin/controlCPAP.out localhost 26 0
         exit
     esac
-    echo -e "\x93$HEX_CMD\n" | /nand2/root/usr/bin/controlCPAP 127.0.0.1 25 $EXPECT_READ
+    
+    while true
+    do
+        if [ "`pidof controlCPAP.out`" == "" ]
+        then
+            break
+        fi
+        sleep 1
+    done
+    
+    echo -e "\x93$HEX_CMD\n" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 25 $EXPECT_READ
 fi
 

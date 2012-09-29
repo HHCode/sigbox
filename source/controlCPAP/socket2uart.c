@@ -14,6 +14,84 @@
 #define SERVPORT 9527
 
 
+#define PORT_OF_GETSTATUS 26
+
+
+void *functionGetStatus( void *param )
+{
+    Socket2Uart *socket_to_uart=( Socket2Uart *)param;
+    int listen_fd=-1;
+    int connect_fd;
+    char buffer[1024];
+    while(1)
+    {
+        connect_fd = start_tcp_server( &listen_fd , PORT_OF_GETSTATUS );
+
+        if ( connect_fd < 0 )
+        {
+            printf_error( "GetStatus:the listen socket error\n" );
+            continue;
+        }
+
+        int read_size;
+        read_size = read_socket( connect_fd , buffer );
+
+        if ( read_size < 0 )
+        {
+            printf_error( "GetStatus:read socket error\n" );
+            continue;
+        }
+        else if ( read_size == 0 )
+        {
+            printf_debug( "GetStatus:read socket[%d] time out\n" , connect_fd );
+            continue;
+        }
+
+        if ( debug )
+        {
+            printf_debug( "GetStatus:socket[%d] >>>\n" , connect_fd );
+            if ( read_size > 0 )
+                printData( buffer , read_size , "" , 1  );
+        }
+        char status_string[128];
+
+        if ( strstr( buffer , "status" ) )
+        {
+            socket2uart_GetStatusString( socket_to_uart , status_string , sizeof( status_string ));
+
+            if ( debug )
+            {
+                printf_debug( "socket[%d] <<<\n" , connect_fd );
+                printData( status_string , strlen( status_string ) , "" , 0  );
+            }
+            char output_status[256];
+            if ( strlen( status_string ) > 0 )
+            {
+                snprintf( output_status , sizeof(output_status) , "STATUS\n%s" , status_string );
+            }
+            else
+            {
+                snprintf( output_status , sizeof(output_status) , "FAILED\nStatus not be read at background\n" );
+            }
+            write( connect_fd , output_status , strlen( output_status ));
+        }
+
+        close( connect_fd );
+    }
+
+
+
+    return 0;
+}
+
+
+
+void Init_GetStatus( Socket2Uart *socket_to_uart )
+{
+    pthread_t threadGetStatus;
+    pthread_create( &threadGetStatus , 0 , functionGetStatus , socket_to_uart );
+}
+
 
 void *functionSocket2Uart( void *param )
 {
@@ -27,6 +105,7 @@ void *functionSocket2Uart( void *param )
 void Init_socket2uart( Socket2Uart *socket_to_uart )
 {
     pthread_create( &socket_to_uart->threadSocket2Uart , 0 , functionSocket2Uart , socket_to_uart );
+    Init_GetStatus( socket_to_uart );
 }
 
 int socket2uart_IsConnect( Socket2Uart *socket_to_uart )
@@ -114,6 +193,15 @@ void socket2uart_SetStatusString( Socket2Uart *socket_to_uart , char *status_str
     strncpy( socket_to_uart->status_string , status_string , sizeof(socket_to_uart->status_string) );
     pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
 }
+
+
+void socket2uart_GetStatusString( Socket2Uart *socket_to_uart , char *status_string , int status_string_len )
+{
+    pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
+    strncpy( status_string , socket_to_uart->status_string , status_string_len );
+    pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
+}
+
 
 
 static int DisconnectIfNoPermit( Socket2Uart *socket_to_uart )
@@ -260,26 +348,7 @@ int socket2uart( Socket2Uart *socket_to_uart )
                 printData( buffer , read_size , "" , 1  );
             }
 
-            if ( strstr( buffer , "status" ) )
-            {
-                if ( debug )
-                {
-                    printf_debug( "socket[%d] <<<\n" , socket_to_uart->connect_fd );
-                    printData( socket_to_uart->status_string , strlen( socket_to_uart->status_string ) , "" , 0  );
-                }
-                char output_status[256];
-                if ( strlen( socket_to_uart->status_string ) > 0 )
-                {
-                    snprintf( output_status , sizeof(output_status) , "STATUS\n%s" , socket_to_uart->status_string );
-                }
-                else
-                {
-                    snprintf( output_status , sizeof(output_status) , "FAILED\nStatus not be read at background\n" );
-                }
-                write( socket_to_uart->connect_fd , output_status , strlen( output_status ));
-                break;
-            }
-            else if ( CPAP_send( 0 , buffer , read_size ) >= 0 )
+            if ( CPAP_send( 0 , buffer , read_size ) >= 0 )
             {
                 //note the uart-to-socket thread to read uart
                 pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
