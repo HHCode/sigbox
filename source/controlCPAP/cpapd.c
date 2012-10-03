@@ -108,7 +108,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         output_DA:'1',
-        max_value:2400
+        max_value:5000
     },
     {
         command_number:LEAK,
