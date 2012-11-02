@@ -42,6 +42,7 @@ else
         echo "netmask=$MASK" >> /nand2/root/etc/network.conf
         
     else
+        echo "NetworkType=$TYPE" > /nand2/root/etc/network.conf
         killproc udhcpc
         udhcpc -qb -s /usr/share/udhcpc/default.script &
     fi

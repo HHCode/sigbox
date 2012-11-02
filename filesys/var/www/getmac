@@ -1,0 +1,14 @@
+#!/bin/sh
+
+. /var/www/commonScript
+
+if [ "$QUERY_STRING" != "" ];
+then
+    head
+fi
+
+IF_STR=`/sbin/ifconfig eth0 | grep HWaddr`
+MAC=${IF_STR##*'HWaddr '}
+
+echo OK
+echo $MAC

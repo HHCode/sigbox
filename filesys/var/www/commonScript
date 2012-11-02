@@ -56,3 +56,11 @@ echo "$1" | sed 's/\//\\/g'
 
 
 } 
+
+modify_key_value()
+{
+    TARGET_KEY=$1
+    REPLACEMENT_VALUE=$2
+    CONFIG_FILE=$3
+    sed -i "s/\($1 *= *\).*/\1$2/" $3
+}

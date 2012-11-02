@@ -1,0 +1,19 @@
+#!/bin/sh
+
+. /var/www/commonScript
+
+if [ "$QUERY_STRING" != "" ];
+then
+    head
+    MAC=`parse mac $QUERY_STRING`
+else
+    MAC=$1
+fi
+
+if [ "$MAC" == "" ];then
+    echo FAILED
+    echo example:
+    echo http://127.0.0.1/setmac?mac=00:11:22:33:44:55
+else
+    /nand2/root/sh/setmac.sh $MAC
+fi

@@ -19,6 +19,9 @@ fi
 export ROOT=/nand2/root
 export PATH=$PATH:/nand2/root/usr/bin/
 
+cd $ROOT/sh
+./renewmac.sh /nand1/etc/MACConfig
+
 ##################################
 #         set file system
 ##################################
@@ -100,6 +103,3 @@ fi
 
 cd $ROOT/usr/bin
 ./nmbd -D
-
-cd $ROOT/sh
-./renewmac.sh /nand1/etc/MACConfig
