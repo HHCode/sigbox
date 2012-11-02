@@ -1,0 +1,19 @@
+#!/bin/sh
+
+. /var/www/commonScript
+
+if [ "$QUERY_STRING" != "" ];
+then
+    head
+    NAME=`parse name $QUERY_STRING`
+else
+    NAME=$1
+fi
+
+if [ "$NAME" == "" ];then
+    echo FAILED
+    echo example:
+    echo http://127.0.0.1/netbios?name=sigbox1
+else
+    echo "netbios name = $NAME" > /etc/netbios_name.conf
+fi
