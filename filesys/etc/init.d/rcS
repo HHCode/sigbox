@@ -89,17 +89,22 @@ $ROOT/etc/init.d/listenUART &
 
 telnetd
 
-cd $ROOT/usr/lib
-ln -s ./libnsl.so /lib/libnsl.so.1
-ln -s ./librt.so /lib/librt.so.1
-ln -s ./libtalloc.so /lib/libtalloc.so.1
-ln -s ./libtdb.so /lib/libtdb.so.1
-ln -s ./libtalloc.so /lib/libtalloc.so.2
-ln -s ./librt.so /lib/librt.so.1
+ln -s $ROOT/usr/lib/libnsl.so /lib/libnsl.so.1
+ln -s $ROOT/usr/lib/librt.so /lib/librt.so.1
+ln -s $ROOT/usr/lib/libtalloc.so /lib/libtalloc.so.1
+ln -s $ROOT/usr/lib/libtdb.so /lib/libtdb.so.1
+ln -s $ROOT/usr/lib/libtalloc.so /lib/libtalloc.so.2
+ln -s $ROOT/usr/lib/librt.so /lib/librt.so.1
+ln -s /nand2/root/etc/netbios_name.conf /etc/netbios_name.conf
+ln -s /nand2/root/etc/samba /etc/samba
+ln -s /nand2/root/etc/samba/smb.conf /etc/smb.conf
 
-if [ ! -e /usr/local/samba/var/locks/ ];then
-    mkdir -p /usr/local/samba/var/locks/
-fi
+
+mkdir -p /usr/local/samba/private
+mkdir -p /usr/local/samba/var/locks/
+
+
 
 cd $ROOT/usr/bin
 ./nmbd -D
+./smbd -D

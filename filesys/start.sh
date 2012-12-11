@@ -6,6 +6,6 @@ insmod /lib/modules/tcc_dm9000.ko
 #ping  google.com
 
 
-/nand2/root/tool/mount.sh
+#/nand2/root/tool/mount.sh
 /nand2/root/etc/init.d/rcS
 
