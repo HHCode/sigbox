@@ -44,7 +44,11 @@ typedef enum{
     LEAK,
     RAMP,
     PVA,
-    NUM_OF_COMMAND
+    NUM_OF_COMMAND,
+
+    SET_CPAP_PRESSURE,
+    SET_APAP_PRESSURE
+
 
 }PERIODIC_COMMAND;
 
@@ -63,6 +67,25 @@ typedef struct {
     int     max_value;
     int     value_in_recv_buffer;
 }CPAPCommand;
+
+
+static CPAPCommand set_cpap_pressure=
+{
+    command_number:SET_CPAP_PRESSURE,
+    name:"CPAP_PRESSURE",
+    command_code:{0x93 , 0xcd},
+    command_length:3,
+    expected_recv_length:2                  //include xor
+};
+
+static CPAPCommand set_apap_pressure=
+{
+    command_number:SET_APAP_PRESSURE,
+    name:"APAP_PRESSURE",
+    command_code:{0x93 , 0xd1},
+    command_length:5,
+    expected_recv_length:2                  //include xor
+};
 
 /*-----------output to DA-----------
 A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
@@ -133,8 +156,6 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5
     }
-
-
 };
 
 int readAChar( int fifoFD )
@@ -541,23 +562,61 @@ int GetPressure( void )
         return command_list[APAP_PRESSURE].recv_buffer[5];
 }
 
+int CPAPSendCommandDebug( CPAPCommand *command )
+{
+    command->recv_length = CPAPSendCommand( command );
+
+    if ( command->recv_length < 0  )
+    {
+        if ( debug )
+        {
+            printf_debug("CPAPSendCommand error\n");
+            printData( (char *)command->recv_buffer , command->recv_length , "send data error\n" , 1 );
+        }
+    }
+    return command->recv_length;
+}
 
 int ExecuteSeriesCommand( void )
 {
     int command_index;
-    int is_CPAP_mode=0;
+    static int is_CPAP_mode=0;
     int err=0;
 
     if  ( CPAPSendCommand( &command_list[MODE] ) < 0 )
         return -1;
 
+    int pressure=GetPressure();
     if ( IsCPAP() )
     {
         printf_debug("detect CPAP mode\n");
+        if ( is_CPAP_mode == 0 )
+        {
+            printf_debug("detect APAP->CPAP mode\n");
+            set_cpap_pressure.command_code[2]=pressure;
+            CPAPSendCommandDebug( &set_cpap_pressure );
+        }
         is_CPAP_mode = 1;
     }
     else
+    {
         printf_debug("detect APAP mode\n");
+        if ( is_CPAP_mode == 1 )
+        {
+            printf_debug("detect CPAP->APAP mode\n");
+            if ( pressure > GetMaxPressure() )
+                pressure = GetMaxPressure();
+
+            if ( pressure < GetMinPressure() )
+                pressure = GetMinPressure();
+
+            set_apap_pressure.command_code[2]=pressure;
+            set_apap_pressure.command_code[3]=GetMaxPressure();
+            set_apap_pressure.command_code[4]=GetMinPressure();
+            CPAPSendCommandDebug( &set_apap_pressure );
+        }
+        is_CPAP_mode=0;
+    }
 
     for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
     {
