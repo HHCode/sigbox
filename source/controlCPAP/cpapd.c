@@ -84,7 +84,7 @@ static CPAPCommand set_cpap_pressure=
     name:"CPAP_PRESSURE",
     command_code:{0x93 , 0xcd},
     command_length:3,
-    expected_recv_length:2                  //include xor
+    expected_recv_length:1                  //include xor
 };
 
 static CPAPCommand set_apap_pressure=
@@ -93,7 +93,7 @@ static CPAPCommand set_apap_pressure=
     name:"APAP_PRESSURE",
     command_code:{0x93 , 0xd1},
     command_length:5,
-    expected_recv_length:2                  //include xor
+    expected_recv_length:1                  //include xor
 };
 
 /*-----------output to DA-----------
@@ -129,7 +129,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         name:"APAP Pressure",           //A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
         command_code:{0x93 , 0xd2},
         command_length:2,
-        expected_recv_length:7,
+        expected_recv_length:8,
         output_DA:'0',
         max_value:200
     },
@@ -592,9 +592,12 @@ int ExecuteSeriesCommand( void )
     static int is_CPAP_mode=0;
     int err=0;
 
+    //Duty_Start();
+
     if  ( CPAPSendCommand( &command_list[MODE] ) < 0 )
         return -1;
 
+    //Duty_End();
     int pressure=GetPressure();
     if ( IsCPAP() )
     {
@@ -602,6 +605,7 @@ int ExecuteSeriesCommand( void )
         if ( is_CPAP_mode == 0 )
         {
             printf_debug("detect APAP->CPAP mode\n");
+            printf_debug("set CPAP pressure=%d\n" , pressure );
             set_cpap_pressure.command_code[2]=pressure;
             CPAPSendCommandDebug( &set_cpap_pressure );
         }
@@ -618,7 +622,7 @@ int ExecuteSeriesCommand( void )
 
             if ( pressure < GetMinPressure() )
                 pressure = GetMinPressure();
-
+            printf_debug("set APAP pressure=%d\n" , pressure );
             set_apap_pressure.command_code[2]=pressure;
             set_apap_pressure.command_code[3]=GetMaxPressure();
             set_apap_pressure.command_code[4]=GetMinPressure();
@@ -627,7 +631,7 @@ int ExecuteSeriesCommand( void )
         is_CPAP_mode=0;
     }
 
-    for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
+    for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND-2 ; command_index++ )
     {
         //choose one of mode
         if ( is_CPAP_mode && command_index == APAP_PRESSURE )
@@ -636,9 +640,19 @@ int ExecuteSeriesCommand( void )
         if ( is_CPAP_mode==0 && command_index == CPAP_PRESSURE )
             continue;
 
-
+ //       Duty_End();
         err=cpap2psg( &command_list[command_index] );
     }
+
+    static struct timeval last_time;
+    struct timeval present_time;
+
+    gettimeofday( &present_time , 0 );
+
+    int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time.tv_sec*1000000+last_time.tv_usec;
+    printf_debug( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
+
+    last_time = present_time;
 
     char status_command[256];
     static uint32_t serial_number;
@@ -673,6 +687,7 @@ int ExecuteSeriesCommand( void )
                  );
 
     }
+    //Duty_End();
     socket2uart_SetStatusString( &socket_to_uart , status_command );
 
     return err;
@@ -735,7 +750,6 @@ void ResetWatchDog( int watchdog_fd )
     if ( ioctl( watchdog_fd , WDIOC_KEEPALIVE , 0 ) )
     {
         perror("ioctl");
-        return -1;
     }
 
     write( watchdog_fd , &dummy , sizeof(dummy) );
@@ -763,7 +777,7 @@ int cpapd( void )
             last_serial_number = serial_number;
             memset( &connect_time , 0 ,sizeof(connect_time));
             ExecuteSeriesCommand();
-            sleep(1);
+      //      sleep(1);
         }
         else if ( connect_time.tv_sec == 0 )
         {
