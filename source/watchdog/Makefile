@@ -1,6 +1,6 @@
-include ../tcc8900.mk
-include $(TOP)config
-include $(TOP)rule.mk
+#include ../tcc8900.mk
+#include $(TOP)config
+#include $(TOP)rule.mk
 
 INCLUDE += -I$(TOP)common
 INCLUDE += -I$(KDIR)arch/arm/include

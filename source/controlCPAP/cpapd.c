@@ -16,6 +16,15 @@
 #include "socket2uart.h"
 #include <sys/wait.h>
 #include <signal.h>
+#include <linux/watchdog.h>
+#include <sys/ioctl.h>
+
+#ifndef WDIOC_SETTIMEOUT
+ #define WDIOC_SETTIMEOUT        _IOWR(WATCHDOG_IOCTL_BASE, 6, int)
+ #define WDIOC_GETTIMEOUT        _IOR(WATCHDOG_IOCTL_BASE, 7, int)
+ #define WDIOF_SETTIMEOUT        0x0080
+#endif
+
 
 int debug=0;
 
@@ -693,6 +702,45 @@ static void sigpipe_handler(int sig)
 }
 
 
+int initWatchDog( int second )
+{
+    int watchdog_fd;
+    watchdog_fd = open("/dev/watchdog", O_RDWR);
+    if (-1 == watchdog_fd)
+    {
+        perror("open");
+        return -1;
+    }
+
+    if ( ioctl( watchdog_fd , WDIOC_SETTIMEOUT, &second ))
+    {
+        perror("ioctl");
+        return -1;
+    }
+
+    int present_second;
+    if ( ioctl( watchdog_fd , WDIOC_GETTIMEOUT, &present_second ))
+    {
+        perror("ioctl");
+        return -1;
+    }
+
+    printf( "watch dog %d -> %d second\n"  , present_second ,  second );
+    return watchdog_fd;
+}
+
+void ResetWatchDog( int watchdog_fd )
+{
+    int dummy=0;
+    if ( ioctl( watchdog_fd , WDIOC_KEEPALIVE , 0 ) )
+    {
+        perror("ioctl");
+        return -1;
+    }
+
+    write( watchdog_fd , &dummy , sizeof(dummy) );
+}
+
 int cpapd( void )
 {
     struct timeval connect_time;
@@ -700,12 +748,16 @@ int cpapd( void )
     int serial_number=0;
     int last_serial_number;
     signal(SIGPIPE, sigpipe_handler);
+
+//    int watchdog;
+ //   watchdog = initWatchDog( 5 );
     initDAC();
     Init_CPAP();
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
     Init_socket2uart( &socket_to_uart );
     while(1)
     {
+   //     ResetWatchDog( watchdog );
         if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
         {
             last_serial_number = serial_number;
