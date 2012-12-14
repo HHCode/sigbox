@@ -401,6 +401,7 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
 
 int CPAPSendCommand( CPAPCommand *command )
 {
+    printf_debug("send %s command\n" , command->name );
     return CPAP_SendCommand( command->command_code , command->command_length , command->recv_buffer , sizeof(command->recv_buffer) , command->expected_recv_length );
 }
 
@@ -594,7 +595,7 @@ int ExecuteSeriesCommand( void )
 
     Duty_Start();
 
-    if  ( CPAPSendCommand( &command_list[MODE] ) < 0 )
+    if  ( CPAPSendCommand( &command_list[MODE] ) >= 0 )
     {
 
         Duty_End("MODE");
@@ -604,8 +605,8 @@ int ExecuteSeriesCommand( void )
             printf_debug("detect CPAP mode\n");
             if ( is_CPAP_mode == 0 )
             {
-                printf_debug("detect APAP->CPAP mode\n");
-                printf_debug("set CPAP pressure=%d\n" , pressure );
+                printf_info("detect APAP->CPAP mode\n");
+                printf_info("set CPAP pressure=%d\n" , pressure );
                 set_cpap_pressure.command_code[2]=pressure;
                 CPAPSendCommandDebug( &set_cpap_pressure );
             }
@@ -616,13 +617,13 @@ int ExecuteSeriesCommand( void )
             printf_debug("detect APAP mode\n");
             if ( is_CPAP_mode == 1 )
             {
-                printf_debug("detect CPAP->APAP mode\n");
+                printf_info("detect CPAP->APAP mode\n");
                 if ( pressure > GetMaxPressure() )
                     pressure = GetMaxPressure();
 
                 if ( pressure < GetMinPressure() )
                     pressure = GetMinPressure();
-                printf_debug("set APAP pressure=%d\n" , pressure );
+                printf_info("set APAP pressure=%d\n" , pressure );
                 set_apap_pressure.command_code[2]=pressure;
                 set_apap_pressure.command_code[3]=GetMaxPressure();
                 set_apap_pressure.command_code[4]=GetMinPressure();

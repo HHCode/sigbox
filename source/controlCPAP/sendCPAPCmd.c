@@ -14,15 +14,22 @@ int InputFromStdin( char *cmdBuffer , int bufferSize )
 {
     int stdin_size=0;
     char inputFromStdIn;
-
+    int minus=5;
 
     do
     {
         inputFromStdIn = getchar();
 
-    //    printf_debug( "get 0x%x\n" , inputFromStdIn );
+        printf_debug( "get 0x%x\n" , inputFromStdIn );
 
-        if ( inputFromStdIn == '\n' ) break;
+        if ( inputFromStdIn == '-' )
+        {
+            minus--;
+            if ( minus <= 0 )
+                break;
+        }
+        else
+            minus=5;
 
         cmdBuffer[stdin_size++]=inputFromStdIn;
 
@@ -34,7 +41,7 @@ int InputFromStdin( char *cmdBuffer , int bufferSize )
         }
     }while( inputFromStdIn != '\n' );
 
-    return stdin_size;
+    return stdin_size-4;
 }
 
 

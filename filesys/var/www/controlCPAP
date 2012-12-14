@@ -117,5 +117,5 @@ else
         exit
     done
    
-   echo -e "\x93$HEX_CMD" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 25 $EXPECT_READ
+   echo -e "\x93$HEX_CMD-----" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 25 $EXPECT_READ
 fi 

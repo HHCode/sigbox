@@ -4,6 +4,10 @@
 #include <errno.h>
 extern int debug;
 
+#define printf_info(fmt, args...)\
+{\
+    printf("%s[%d]: "fmt, __FILE__, __LINE__, ##args);\
+}
 
 #define printf_debug(fmt, args...)\
 {\
