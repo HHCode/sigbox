@@ -2,8 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/time.h>
-
-
+#include <common.h>
 
 struct timeval start;
 //--------------------------------------------------------
@@ -30,13 +29,13 @@ void Duty_Start( void )
 // Modified Date : 2009/11/2 by HawkHsieh
 // Notice                :
 //--------------------------------------------------------
-int Duty_End( void )
+int Duty_End( char *tag )
 {
         struct timeval end;
         int Cost;
         gettimeofday(&end,0);
         Cost = ((end.tv_sec - start.tv_sec) * 1000000 + end.tv_usec - start.tv_usec);
-        printf("Duty cost %dus\n",Cost);
+        printf_debug("%s:Duty cost %dus\n", tag , Cost);
         return Cost;
 }
 

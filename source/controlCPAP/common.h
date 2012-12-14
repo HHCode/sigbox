@@ -29,7 +29,7 @@ extern int debug;
 
 void printData( char *data , int size , char *prefix , int binary );
 
-int Duty_End( void );
+int Duty_End( char *tag );
 void Duty_Start( void );
 
 #endif

@@ -592,12 +592,12 @@ int ExecuteSeriesCommand( void )
     static int is_CPAP_mode=0;
     int err=0;
 
-    //Duty_Start();
+    Duty_Start();
 
     if  ( CPAPSendCommand( &command_list[MODE] ) < 0 )
         return -1;
 
-    //Duty_End();
+    Duty_End("MODE");
     int pressure=GetPressure();
     if ( IsCPAP() )
     {
@@ -640,8 +640,8 @@ int ExecuteSeriesCommand( void )
         if ( is_CPAP_mode==0 && command_index == CPAP_PRESSURE )
             continue;
 
- //       Duty_End();
         err=cpap2psg( &command_list[command_index] );
+        Duty_End( command_list[command_index].name );
     }
 
     static struct timeval last_time;
@@ -687,7 +687,6 @@ int ExecuteSeriesCommand( void )
                  );
 
     }
-    //Duty_End();
     socket2uart_SetStatusString( &socket_to_uart , status_command );
 
     return err;
