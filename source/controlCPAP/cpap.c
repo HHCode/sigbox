@@ -249,9 +249,10 @@ int openCPAPDevice( void )
     if ( use_descriptor > 0 )
     {
         printf_debug( "use descriptor:%d\n" , use_descriptor );
-
+//        system("/nand2/root/usr/bin/igutil.1.0 -e -s -g a 10");
     }else{
         printf_debug("cant find any cpap device\n" );
+//        system("/nand2/root/usr/bin/igutil.1.0 -e -g a 10");
     }
     return use_descriptor;
 }
