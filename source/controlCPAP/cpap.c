@@ -154,9 +154,19 @@ int CPAP_SendCommand( char *command_code , int command_length , uint8_t *recv_bu
     return responseSize;
 }
 
+
 int GetCPAPDescriptor( void )
 {
     return cpap_global.uart_fd;
+}
+
+
+char *GetConnectStatus( void )
+{
+    if ( GetCPAPDescriptor() < 0 )
+        return "disconnect";
+    else
+        return "connect";
 }
 
 void *functionTestUART( void *param )
@@ -197,7 +207,11 @@ int openCPAPDevice( void )
     int io_descriptor;
     pthread_t threadTestUART[TEST_UART_NUMBER];
 
-    if ( cpap_global.uart_fd != -1 ) close( cpap_global.uart_fd );
+    if ( cpap_global.uart_fd != -1 )
+    {
+        printf_debug("close uart set fd:%d to -1\n" , cpap_global.uart_fd );
+        close( cpap_global.uart_fd );
+    }
 
     cpap_global.uart_fd=-1;
 

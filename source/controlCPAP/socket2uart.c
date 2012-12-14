@@ -71,7 +71,7 @@ void *functionGetStatus( void *param )
             }
             else
             {
-                snprintf( output_status , sizeof(output_status) , "FAILED\nStatus not be read at background\n" );
+                snprintf( output_status , sizeof(output_status) , "FAILED\nPAP is not connected\n" );
             }
             write( connect_fd , output_status , strlen( output_status ));
         }
@@ -198,7 +198,7 @@ void socket2uart_SetStatusString( Socket2Uart *socket_to_uart , char *status_str
 void socket2uart_GetStatusString( Socket2Uart *socket_to_uart , char *status_string , int status_string_len )
 {
     pthread_mutex_lock( &socket_to_uart->mutexSocket2Uart );
-    strncpy( status_string , socket_to_uart->status_string , status_string_len );
+    snprintf( status_string , status_string_len , "%s,%s" , GetConnectStatus() , socket_to_uart->status_string );
     pthread_mutex_unlock( &socket_to_uart->mutexSocket2Uart );
 }
 

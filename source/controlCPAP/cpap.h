@@ -18,4 +18,5 @@ int isErrorCode( uint8_t test_byte );
 int CPAP_recv( int descriptor , uint8_t *cmd, int cmd_length );
 void Init_CPAP( void );
 void SetCPAPDontReopen( void );
+char *GetConnectStatus( void );
 #endif
