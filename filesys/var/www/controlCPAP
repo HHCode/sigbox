@@ -104,7 +104,7 @@ else
         HEX_CMD=`reverseBackslash $HEX_CMD`
         ;;
     CPAP_GET_STATUS )
-        echo -e "status" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 26 0
+        echo -e "status-----" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 26 0
         exit
     esac
     
