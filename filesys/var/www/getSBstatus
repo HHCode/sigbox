@@ -1,0 +1,29 @@
+#!/bin/sh
+
+. /var/www/commonScript
+
+if [ "$QUERY_STRING" != "" ];
+then
+    head
+fi
+
+IP=`/sbin/ifconfig | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+MASK=`/sbin/ifconfig eth0 | grep "inet addr:" | cut -d':' -f4`
+
+GW_STR=`ip route list dev eth0 | awk '{ print $1 }'`
+GW=${GW_STR%%/*}
+
+
+IF_STR=`/sbin/ifconfig eth0 | grep HWaddr`
+MAC=${IF_STR##*'HWaddr '}
+
+PORT=`/nand2/root/usr/bin/get_key_value /nand2/root/etc/thttpd.d/thttpd.conf port`
+
+IPMODE=`/nand2/root/usr/bin/get_key_value /nand2/root/etc/network.conf NetworkType`
+
+HOSTNAME=`/nand2/root/usr/bin/get_key_value /nand2/root/etc/netbios_name.conf "netbios name"`
+
+VERSION=`cat /nand2/root/var/www/version`
+
+echo OK
+echo $IPMODE,$IP,$MASK,$GW,$HOSTNAME,$PORT,$MAC,$VERSION
