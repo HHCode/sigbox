@@ -39,7 +39,7 @@ int InputFromStdin( char *cmdBuffer , int bufferSize )
             printf_debug("input too long,should be less then %d\n" , sizeof(cmdBuffer ));
             return -1;
         }
-    }while( inputFromStdIn != '\n' );
+    }while( strstr( cmdBuffer , "-----") == 0 );
 
     return stdin_size-4;
 }

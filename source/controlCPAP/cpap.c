@@ -285,6 +285,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
     int recv_return;
     uint8_t *x93_cmd=0;
     uint8_t *e5=0;
+    uint8_t *e6=0;
     int valid_length=0;
     int index;
     uint8_t error_code=0;
@@ -294,7 +295,7 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
 
         recv_size += recv_return;
 
-        if ( responseBuffer[0] != 0xe5 && isErrorCode( responseBuffer[0] ) )
+        if ( responseBuffer[0] != 0xe5 && responseBuffer[0] != 0xe6 && isErrorCode( responseBuffer[0] ) )
         {
             valid_length=1;
             error_code=responseBuffer[0];
@@ -313,7 +314,12 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
                 }
                 else if ( responseBuffer[index] == 0xe5 )
                     e5=&responseBuffer[index];
-
+                else if ( responseBuffer[index] == 0xe6 )
+                {
+                    e6=&responseBuffer[index];
+                    valid_length = 1;
+                    break;
+                }
             }
         }
         else
@@ -366,6 +372,11 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
         {
             responseBuffer[0]=0xe5;
             return 1;
+        }
+        else if ( e6 )
+        {
+            responseBuffer[0]=0xe6;
+            return -1;
         }
     }
 

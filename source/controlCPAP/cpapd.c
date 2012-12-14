@@ -566,11 +566,34 @@ int GetLeak( void )
 
 int GetPressure( void )
 {
+    int present_pressure;
     if ( IsCPAP() )
-        return command_list[CPAP_PRESSURE].recv_buffer[2];
+    {
+        present_pressure = command_list[CPAP_PRESSURE].recv_buffer[2];
+    }
     else
-        return command_list[APAP_PRESSURE].recv_buffer[5];
+    {
+        present_pressure = command_list[APAP_PRESSURE].recv_buffer[5];
+    }
+    return present_pressure;
 }
+
+
+
+int GetCPAPPressure( void )
+{
+    int present_pressure=command_list[CPAP_PRESSURE].recv_buffer[2];
+    return present_pressure;
+}
+
+
+int GetAPAPPressure( void )
+{
+    int present_pressure= command_list[APAP_PRESSURE].recv_buffer[5];
+    return present_pressure;
+}
+
+
 
 int CPAPSendCommandDebug( CPAPCommand *command )
 {
@@ -599,32 +622,48 @@ int ExecuteSeriesCommand( void )
     {
 
         Duty_End("MODE");
-        int pressure=GetPressure();
+        int pressure;
         if ( IsCPAP() )
         {
+            pressure = GetAPAPPressure();
+            if ( pressure == 0 )
+                pressure = GetCPAPPressure();
             printf_debug("detect CPAP mode\n");
             if ( is_CPAP_mode == 0 )
             {
                 printf_info("detect APAP->CPAP mode\n");
-                printf_info("set CPAP pressure=%d\n" , pressure );
-                set_cpap_pressure.command_code[2]=pressure;
+                int set_pressure=(double)pressure*0.2;
+                printf_info("set CPAP pressure=%d\n" , set_pressure );
+                set_cpap_pressure.command_code[2]= set_pressure;
                 CPAPSendCommandDebug( &set_cpap_pressure );
             }
             is_CPAP_mode = 1;
         }
         else
         {
+            pressure = GetCPAPPressure();
+            if ( pressure == 0 )
+                pressure = GetAPAPPressure();
+
             printf_debug("detect APAP mode\n");
             if ( is_CPAP_mode == 1 )
             {
+                int set_pressure=(double)pressure*0.2;
                 printf_info("detect CPAP->APAP mode\n");
-                if ( pressure > GetMaxPressure() )
-                    pressure = GetMaxPressure();
+                if ( pressure > GetMaxPressure()*5 )
+                {
+                    printf_info("over max %d\n" , GetMaxPressure()*5 );
+                    set_pressure = GetMaxPressure();
+                }
 
-                if ( pressure < GetMinPressure() )
-                    pressure = GetMinPressure();
-                printf_info("set APAP pressure=%d\n" , pressure );
-                set_apap_pressure.command_code[2]=pressure;
+                if ( pressure < GetMinPressure()*5 )
+                {
+                    printf_info("below min %d\n" , GetMinPressure()*5 );
+                    set_pressure = GetMinPressure();
+                }
+
+                printf_info("set APAP pressure=%d\n" , set_pressure );
+                set_apap_pressure.command_code[2]=set_pressure;
                 set_apap_pressure.command_code[3]=GetMaxPressure();
                 set_apap_pressure.command_code[4]=GetMinPressure();
                 CPAPSendCommandDebug( &set_apap_pressure );
