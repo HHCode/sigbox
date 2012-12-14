@@ -38,8 +38,8 @@ do
         mkfifo -m 777 /tmp/FIFO_CHANNEL$ch
     fi
 done
-#/nand2/root/usr/bin/cpap2psg &
-/nand2/root/usr/bin/cpapd 25 &
+
+/nand2/root/usr/bin/run_cpapd.sh &
 
 
 

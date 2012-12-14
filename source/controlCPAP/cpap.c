@@ -3,6 +3,10 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 #include "cpap.h"
 #include "rs232.h"
@@ -27,6 +31,25 @@ typedef struct{
 static cpapGlobal cpap_global;
 
 
+void SetLed( int onoff )
+{
+    int fd=open( "/tmp/led" , O_WRONLY );
+    if ( fd < 0 )
+    {
+        perror( "open /tmp/led" );
+    }
+    else
+    {
+        if ( onoff )
+            write( fd , "ON" , 2);
+        else
+            write( fd , "OFF" , 3);
+
+        close( fd );
+    }
+
+}
+
 static void tryToOpenCPAP( void )
 {
     if ( cpap_global.dont_reopen == 0 )
@@ -36,7 +59,8 @@ static void tryToOpenCPAP( void )
         {
             printf_error( "try to reopen uart %d\n", retry );
             cpap_global.uart_fd = openCPAPDevice();
-            if ( cpap_global.uart_fd > 0 ) break;
+            if ( cpap_global.uart_fd > 0 )
+                break;
             sleep(1);
         }
     }
@@ -161,12 +185,17 @@ int GetCPAPDescriptor( void )
 }
 
 
+
 char *GetConnectStatus( void )
 {
     if ( GetCPAPDescriptor() < 0 )
+    {
         return "disconnect";
+    }
     else
+    {
         return "connect";
+    }
 }
 
 void *functionTestUART( void *param )
@@ -249,10 +278,10 @@ int openCPAPDevice( void )
     if ( use_descriptor > 0 )
     {
         printf_debug( "use descriptor:%d\n" , use_descriptor );
-//        system("/nand2/root/usr/bin/igutil.1.0 -e -s -g a 10");
+        SetLed( 1 );
     }else{
         printf_debug("cant find any cpap device\n" );
-//        system("/nand2/root/usr/bin/igutil.1.0 -e -g a 10");
+        SetLed( 0 );
     }
     return use_descriptor;
 }

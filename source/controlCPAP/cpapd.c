@@ -668,7 +668,7 @@ int ExecuteSeriesCommand( void )
                 }
 #endif
                 printf_info("set APAP pressure=%d\n" , set_pressure );
-                set_apap_pressure.command_code[2]=GetInitPressure()
+                set_apap_pressure.command_code[2]=GetInitPressure();
                 set_apap_pressure.command_code[3]=GetMaxPressure();
                 set_apap_pressure.command_code[4]=set_pressure;
                 CPAPSendCommandDebug( &set_apap_pressure );
