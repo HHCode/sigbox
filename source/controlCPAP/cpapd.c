@@ -139,7 +139,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         output_DA:'1',
-        max_value:5000
+        max_value:2000
     },
     {
         command_number:LEAK,
@@ -376,7 +376,7 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
     {
         char low=recv_buffer[2];
         char hight=recv_buffer[3];
-        uint8_t flow_integer=( hight << 8 | low );
+        uint16_t flow_integer=( hight << 8 | low );
         if ( flow_integer > max_value ) flow_integer = max_value;
         adjuested_value = (65535.0 / max_value )*( flow_integer ) ;
         break;
@@ -385,7 +385,7 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
     {
         char low=recv_buffer[2];
         char hight=recv_buffer[3];
-        uint8_t leak_integer=( hight << 8 | low );
+        uint16_t leak_integer=( hight << 8 | low );
         if ( leak_integer > max_value ) leak_integer = max_value;
         adjuested_value = (65535.0 / max_value )*( leak_integer ) ;
         break;
