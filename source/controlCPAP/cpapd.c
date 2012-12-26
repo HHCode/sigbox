@@ -54,6 +54,7 @@ typedef enum{
     PVA,
     NUM_OF_COMMAND,
 
+
     SET_CPAP_PRESSURE,
     SET_APAP_PRESSURE
 
@@ -74,6 +75,8 @@ typedef struct {
     char    output_DA;          //channel number,ascii code
     int     max_value;
     int     value_in_recv_buffer;
+    int     dec_count;
+    int     sample_count;
 }CPAPCommand;
 
 
@@ -111,7 +114,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xc4},
         command_length:2,
         expected_recv_length:4,                  //include xor
-
+        sample_count:100
     },
     {
         command_number:CPAP_PRESSURE,
@@ -120,8 +123,8 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,                  //include xor
         output_DA:'0',
-        max_value:200
-
+        max_value:200,
+        sample_count:100
     },
     {
         command_number:APAP_PRESSURE,
@@ -130,7 +133,8 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:8,
         output_DA:'0',
-        max_value:200
+        max_value:200,
+        sample_count:100
     },
     {
         command_number:PATIENT_FLOW,
@@ -139,7 +143,8 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         output_DA:'1',
-        max_value:2000
+        max_value:2000,
+        sample_count:1
     },
     {
         command_number:LEAK,
@@ -148,21 +153,24 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         output_DA:'2',
-        max_value:200
+        max_value:200,
+        sample_count:1
     },
     {
         command_number:RAMP,
         name:"Ramp Time",
         command_code:{0x93 , 0xd5},
         command_length:2,
-        expected_recv_length:5
+        expected_recv_length:5,
+        sample_count:50
     },
     {
         command_number:PVA,
         name:"PVA",
         command_code:{0x93 , 0xd6},
         command_length:2,
-        expected_recv_length:5
+        expected_recv_length:5,
+        sample_count:50
     }
 };
 
@@ -377,6 +385,7 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
         char low=recv_buffer[2];
         char hight=recv_buffer[3];
         uint16_t flow_integer=( hight << 8 | low );
+     //   printf("0x%x%x , %d\n" , hight , low , flow_integer );
         if ( flow_integer > max_value ) flow_integer = max_value;
         adjuested_value = (65535.0 / max_value )*( flow_integer ) ;
         break;
@@ -616,63 +625,86 @@ int ExecuteSeriesCommand( void )
     static int is_CPAP_mode=0;
     int err=0;
 
+
+    usleep(40000);
+
+
     Duty_Start();
 
-    if  ( CPAPSendCommand( &command_list[MODE] ) >= 0 )
+    if ( command_list[MODE].dec_count > 0  )
     {
+        command_list[MODE].dec_count--;
+    }
+    else
+    {
+       command_list[MODE].dec_count = command_list[MODE].sample_count;
+       if ( CPAPSendCommand( &command_list[MODE] ) > 0  )
+       {
+           Duty_End("MODE");
 
-        Duty_End("MODE");
-        int pressure;
-        if ( IsCPAP() )
-        {
-            pressure = GetAPAPPressure();
-            if ( pressure == 0 )
-                pressure = GetCPAPPressure();
-            printf_debug("detect CPAP mode\n");
-            if ( is_CPAP_mode == 0 )
-            {
-                printf_info("detect APAP->CPAP mode\n");
-                int set_pressure=(double)pressure*0.2;
-                printf_info("set CPAP pressure=%d\n" , set_pressure );
-                set_cpap_pressure.command_code[2]= set_pressure;
-                CPAPSendCommandDebug( &set_cpap_pressure );
-            }
-            is_CPAP_mode = 1;
-        }
-        else
-        {
-            pressure = GetCPAPPressure();
-            if ( pressure == 0 )
-                pressure = GetAPAPPressure();
+           int pressure;
+           if ( IsCPAP() )
+           {
+               pressure = GetAPAPPressure();
+               if ( pressure == 0 )
+                   pressure = GetCPAPPressure();
+               printf_debug("detect CPAP mode\n");
+               if ( is_CPAP_mode == 0 )
+               {
+                   printf_info("detect APAP->CPAP mode\n");
+                   int set_pressure=(double)pressure*0.2;
+                   printf_info("set CPAP pressure=%d\n" , set_pressure );
+                   set_cpap_pressure.command_code[2]= set_pressure;
+                   CPAPSendCommandDebug( &set_cpap_pressure );
+               }
+               is_CPAP_mode = 1;
+           }
+           else
+           {
+               pressure = GetCPAPPressure();
+               if ( pressure == 0 )
+                   pressure = GetAPAPPressure();
 
-            printf_debug("detect APAP mode\n");
-            if ( is_CPAP_mode == 1 )
-            {
-                int set_pressure=(double)pressure*0.2;
-                printf_info("detect CPAP->APAP mode\n");
-                if ( pressure > GetMaxPressure()*5 )
-                {
-                    printf_info("over max %d\n" , GetMaxPressure()*5 );
-                    set_pressure = GetMaxPressure();
-                }
+               printf_debug("detect APAP mode\n");
+               if ( is_CPAP_mode == 1 )
+               {
+                   int set_pressure=(double)pressure*0.2;
+                   printf_info("detect CPAP->APAP mode\n");
+                   if ( pressure > GetMaxPressure()*5 )
+                   {
+                       printf_info("over max %d\n" , GetMaxPressure()*5 );
+                       set_pressure = GetMaxPressure();
+                   }
 
-                if ( pressure < GetMinPressure()*5 )
-                {
-                    printf_info("below min %d\n" , GetMinPressure()*5 );
-                    set_pressure = GetMinPressure();
-                }
+                   if ( pressure < GetMinPressure()*5 )
+                   {
+                       printf_info("below min %d\n" , GetMinPressure()*5 );
+                       set_pressure = GetMinPressure();
+                   }
 
-                printf_info("set APAP pressure=%d\n" , set_pressure );
-                set_apap_pressure.command_code[2]=set_pressure;
-                set_apap_pressure.command_code[3]=GetMaxPressure();
-                set_apap_pressure.command_code[4]=GetMinPressure();
-                CPAPSendCommandDebug( &set_apap_pressure );
-            }
-            is_CPAP_mode=0;
-        }
+                   printf_info("set APAP pressure=%d\n" , set_pressure );
+                   set_apap_pressure.command_code[2]=set_pressure;
+                   set_apap_pressure.command_code[3]=GetMaxPressure();
+                   set_apap_pressure.command_code[4]=GetMinPressure();
+                   CPAPSendCommandDebug( &set_apap_pressure );
+               }
+               is_CPAP_mode=0;
+           }
+       }
+    }
+
+
 
         for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND-2 ; command_index++ )
         {
+            if ( command_list[command_index].dec_count > 0  )
+            {
+                command_list[command_index].dec_count--;
+                continue;
+            }
+            else
+                command_list[command_index].dec_count = command_list[command_index].sample_count;
+
             //choose one of mode
             if ( is_CPAP_mode && command_index == APAP_PRESSURE )
                 continue;
@@ -682,18 +714,18 @@ int ExecuteSeriesCommand( void )
 
             err=cpap2psg( &command_list[command_index] );
             Duty_End( command_list[command_index].name );
+
+
+            static struct timeval last_time;
+            struct timeval present_time;
+
+            gettimeofday( &present_time , 0 );
+
+            int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time.tv_sec*1000000+last_time.tv_usec;
+            printf_debug( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
+
+            last_time = present_time;
         }
-
-        static struct timeval last_time;
-        struct timeval present_time;
-
-        gettimeofday( &present_time , 0 );
-
-        int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time.tv_sec*1000000+last_time.tv_usec;
-        printf_debug( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
-
-        last_time = present_time;
-    }
 
     char status_command[256];
     static uint32_t serial_number;
@@ -729,7 +761,7 @@ int ExecuteSeriesCommand( void )
 
     }
     socket2uart_SetStatusString( &socket_to_uart , status_command );
-
+    Duty_End( "EndOfCommand" );
     return err;
 }
 
