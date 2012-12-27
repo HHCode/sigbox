@@ -114,7 +114,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xc4},
         command_length:2,
         expected_recv_length:4,                  //include xor
-        sample_count:100
+        sample_count:10
     },
     {
         command_number:CPAP_PRESSURE,
@@ -124,7 +124,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         expected_recv_length:5,                  //include xor
         output_DA:'0',
         max_value:200,
-        sample_count:100
+        sample_count:10
     },
     {
         command_number:APAP_PRESSURE,
@@ -134,7 +134,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         expected_recv_length:8,
         output_DA:'0',
         max_value:200,
-        sample_count:100
+        sample_count:1
     },
     {
         command_number:PATIENT_FLOW,
@@ -144,7 +144,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         expected_recv_length:5,
         output_DA:'1',
         max_value:2000,
-        sample_count:1
+        sample_count:0
     },
     {
         command_number:LEAK,
@@ -154,7 +154,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         expected_recv_length:5,
         output_DA:'2',
         max_value:200,
-        sample_count:1
+        sample_count:0
     },
     {
         command_number:RAMP,
@@ -675,16 +675,16 @@ int ExecuteSeriesCommand( void )
                        set_pressure = GetMaxPressure()-1;
                    }
 #if 0
-                if ( pressure < GetMinPressure()*5 )
-                {
-                    printf_info("below min %d\n" , GetMinPressure()*5 );
-                    set_pressure = GetMinPressure();
-                }
+                   if ( pressure < GetMinPressure()*5 )
+                   {
+                       printf_info("below min %d\n" , GetMinPressure()*5 );
+                       set_pressure = GetMinPressure();
+                   }
 #endif
-                printf_info("set APAP pressure=%d\n" , set_pressure );
-                set_apap_pressure.command_code[2]=GetInitPressure();
-                set_apap_pressure.command_code[3]=GetMaxPressure();
-                set_apap_pressure.command_code[4]=set_pressure;
+                   printf_info("set APAP pressure=%d\n" , set_pressure );
+                   set_apap_pressure.command_code[2]=GetInitPressure();
+                   set_apap_pressure.command_code[3]=GetMaxPressure();
+                   set_apap_pressure.command_code[4]=set_pressure;
                    CPAPSendCommandDebug( &set_apap_pressure );
                }
                is_CPAP_mode=0;
