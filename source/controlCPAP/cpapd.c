@@ -692,7 +692,7 @@ int ExecuteSeriesCommand( void )
        }
     }
 
-        for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND-2 ; command_index++ )
+        for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
         {
             if ( command_list[command_index].dec_count > 0  )
             {
