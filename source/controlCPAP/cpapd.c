@@ -52,6 +52,7 @@ typedef enum{
     LEAK,
     RAMP,
     PVA,
+    BLOW,
     NUM_OF_COMMAND,
 
 
@@ -170,6 +171,14 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xd6},
         command_length:2,
         expected_recv_length:5,
+        sample_count:50
+    },
+    {
+        command_number:BLOW,
+        name:"BLOW",
+        command_code:{0x93 , 0x52},
+        command_length:2,
+        expected_recv_length:4,
         sample_count:50
     }
 };
@@ -603,6 +612,11 @@ int GetAPAPPressure( void )
 }
 
 
+int GetBlow( void )
+{
+    return (command_list[BLOW].recv_buffer[2] == 0xe5)?0:1;
+}
+
 
 int CPAPSendCommandDebug( CPAPCommand *command )
 {
@@ -729,7 +743,7 @@ int ExecuteSeriesCommand( void )
     if ( IsCPAP() )
     {
         //Mode=CPAP\n,TherapyPressure=%d\nRampTime=%d\nRampStartPressure=%d\nPVA=%d\nPVALevel=%d\n
-        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d,%d,%d,%d" ,
+        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d" ,
                   GetTherapyPressure(),
                   GetRampTime(),
                   GetRampStartPressure(),
@@ -738,13 +752,14 @@ int ExecuteSeriesCommand( void )
                   GetPressure(),
                   GetLeak(),
                   GetPatientFlow(),
+                  GetBlow()?"ON":"OFF",
                   serial_number++
                  );
     }
     else
     {
         //"Mode=APAP\n,MaxPressure=%d\nMinPressure=%d\nInitPressure=%d\nPVA=%d\nPVALevel=%d\n"
-        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d,%d,%d,%d" ,
+        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d" ,
                   GetMaxPressure(),
                   GetMinPressure(),
                   GetInitPressure(),
@@ -753,6 +768,7 @@ int ExecuteSeriesCommand( void )
                   GetPressure(),
                   GetLeak(),
                   GetPatientFlow(),
+                  GetBlow()?"ON":"OFF",
                   serial_number++
                  );
 
