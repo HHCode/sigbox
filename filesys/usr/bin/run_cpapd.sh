@@ -3,6 +3,8 @@ if [ ! -e /tmp/led ];then
     mkfifo 777 /tmp/led
 fi
 
+echo ON > /tmp/led &
+
 /nand2/root/usr/bin/cpapd 25 &
 
 while true;
