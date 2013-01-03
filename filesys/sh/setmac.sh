@@ -53,4 +53,4 @@ else
 	echo "not update MAC setting"
 fi
 
-. ${PWD}/renewmac.sh ${MACLOG}
+#. ${PWD}/renewmac.sh ${MACLOG}
