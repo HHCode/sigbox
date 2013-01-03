@@ -10,6 +10,7 @@
 
 #include "cpap.h"
 #include "rs232.h"
+#include "common.h"
 
 #define TEST_UART_NUMBER 10
 typedef struct{
@@ -325,43 +326,48 @@ int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLe
 
         recv_size += recv_return;
 
-        if ( responseBuffer[0] != 0xe5 && responseBuffer[0] != 0xe6 && isErrorCode( responseBuffer[0] ) )
+        if ( x93_cmd == 0 && e5 == 0 && e6 == 0 )
         {
-            valid_length=1;
-            error_code=responseBuffer[0];
-            break;
-        }
+            if ( responseBuffer[0] != 0xe5 && responseBuffer[0] != 0xe6 && isErrorCode( responseBuffer[0] ) )
+            {
+                valid_length=1;
+                error_code=responseBuffer[0];
+                break;
+            }
 
 
-        if ( x93_cmd == 0 && e5 == 0 )
-        {
             for( index=0 ; index<recv_size ; index++ )
             {
-                if (responseBuffer[index] == 0x93 && responseBuffer[index+1] == cmd_byte )
+                if ((responseBuffer[index] == 0x93) && (responseBuffer[index+1] == cmd_byte) )
                 {
                     x93_cmd = &responseBuffer[index];
                     printf_debug("find 0x93,0x%x at responseBuffer[%d]\n" , cmd_byte , ( x93_cmd - responseBuffer ) );
+                    break;
                 }
                 else if ( responseBuffer[index] == 0xe5 )
+                {
                     e5=&responseBuffer[index];
+                    valid_length = 1;
+                    printf_debug("get e5 at responseBuffer[%d]\n" , index );
+                    break;
+                }
                 else if ( responseBuffer[index] == 0xe6 )
                 {
                     e6=&responseBuffer[index];
                     valid_length = 1;
+                    printf_debug("get e6 at responseBuffer[%d]\n" , index );
                     break;
                 }
             }
         }
         else
+            printf_debug("93=%p,e5=%p,e6=%p\n" , x93_cmd , e5 , e6 );
+
+        if ( x93_cmd )
         {
-            if ( x93_cmd )
-                valid_length = recv_size - ( x93_cmd - responseBuffer );
-
-            if ( e5 )
-                valid_length = 1;
+            valid_length = recv_size - ( x93_cmd - responseBuffer );
+            printf_debug("valid_length=%d\n" , valid_length );
         }
-
-
 
         if ( retry < 1 )
             printf_debug("remain %d bytes\n" , expectedLength-valid_length );
