@@ -27,6 +27,7 @@
 
 
 int debug=0;
+int counter=0;
 
 //-----------For uart to DA-----------
 #define PERIOD_OF_PRESSURE_OUTPUT 1
@@ -80,6 +81,7 @@ typedef struct {
     int     value_in_recv_buffer;
     int     dec_count;
     int     sample_count;
+    struct timeval last_time;
 }CPAPCommand;
 
 
@@ -471,7 +473,7 @@ int cpap2psg( CPAPCommand *command )
             printf_debug( "%s:%c >> DA: 0x%x\n" , command->name , command->output_DA , adjustedValue );
             writeDAC( command->output_DA-'0' , adjustedValue );
         }
-
+        Duty_End( "--DAC cost--" );
         break;
     }
 
@@ -661,7 +663,7 @@ int ExecuteSeriesCommand( void )
     int err=0;
 
 
-    usleep(40000);
+    usleep(20000);
 
     Duty_Start();
 
@@ -744,22 +746,20 @@ int ExecuteSeriesCommand( void )
 
             if ( is_CPAP_mode==0 && ( command_index == CPAP_PRESSURE || command_index == TP ) )
                 continue;
-
-            err=cpap2psg( &command_list[command_index] );
             Duty_End( command_list[command_index].name );
-
-
+            err=cpap2psg( &command_list[command_index] );
+            Duty_End( "--end--" );
             if ( is_CPAP_mode && (command_index == TP) ) writing_cpap=0;
 
-            static struct timeval last_time;
+            struct timeval *last_time = &command_list[command_index].last_time;
             struct timeval present_time;
 
             gettimeofday( &present_time , 0 );
 
-            int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time.tv_sec*1000000+last_time.tv_usec;
+            int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time->tv_sec*1000000+last_time->tv_usec;
             printf_debug( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
 
-            last_time = present_time;
+            *last_time = present_time;
         }
 
     char status_command[256];
@@ -884,6 +884,15 @@ int cpapd( void )
     Init_socket2uart( &socket_to_uart );
     while(1)
     {
+        if ( access( "/etc/debug" , 0 ) == 0 )
+            debug=1;
+        else
+            debug=0;
+
+        if ( access( "/etc/counter" , 0 ) == 0 )
+            counter=1;
+        else
+            counter=0;
    //     ResetWatchDog( watchdog );
         if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
         {
@@ -943,8 +952,6 @@ void handler(int sig)
 
 int main( int argc , char **argv )
 {
-    if ( access( "/etc/debug" , 0 ) == 0 )
-        debug=1;
 
     socket_to_uart.port=SERVPORT;
 

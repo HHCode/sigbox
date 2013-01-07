@@ -3,6 +3,7 @@
 
 #include <errno.h>
 extern int debug;
+extern int counter;
 
 #define printf_info(fmt, args...)\
 {\
@@ -14,6 +15,11 @@ extern int debug;
     if ( debug ) printf("%s[%d]: "fmt, __FILE__, __LINE__, ##args);\
 }
 
+
+#define printf_counter(fmt, args...)\
+{\
+    if ( counter ) printf("%s[%d]: "fmt, __FILE__, __LINE__, ##args);\
+}
 
 #define printf_error(fmt, args...)\
 {\

@@ -166,10 +166,10 @@ int CPAP_SendCommand( char *command_code , int command_length , uint8_t *recv_bu
 
     if ( CPAP_send( 0 , command_code , command_length ) )
         return -1;
-
+    Duty_End( "--send cost--" );
     int responseSize;
     responseSize = recvCPAPResponse( cpap_global.uart_fd , recv_buffer , recv_buffer_length , command_code[1] ,  expected_recv_length );
-
+    Duty_End( "--recv cost--" );
     static int succssive_recv_zero=0;
     if ( responseSize == READ_NOTHING ) succssive_recv_zero++;
     else succssive_recv_zero=0;
@@ -312,7 +312,7 @@ void SetCPAPDontReopen( void )
 int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLength , uint8_t cmd_byte , int expectedLength )
 {
     int recv_size=0;
-    int retry=20;
+    int retry=3;
     int recv_return;
     uint8_t *x93_cmd=0;
     uint8_t *e5=0;

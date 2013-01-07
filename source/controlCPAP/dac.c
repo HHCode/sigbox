@@ -69,7 +69,6 @@ int writeDAC( int channel , uint16_t adjustedValue )
 {
     char i2c_ptr[3];
 
-    if ( debug ) printf( "0x%x," , adjustedValue );
     // write data operation
     if( ioctl( dacDesc[0]  , I2C_SLAVE_FORCE, HIGH_BYTE( address[channel] ) ) < 0 )
     {

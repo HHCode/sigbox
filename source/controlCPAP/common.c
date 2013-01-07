@@ -35,10 +35,10 @@ int Duty_End( char *tag )
         int Cost;
         gettimeofday(&end,0);
         Cost = ((end.tv_sec - start.tv_sec) * 1000000 + end.tv_usec - start.tv_usec);
-        printf_debug("%s:Duty cost %dus\n", tag , Cost);
+        start = end;
+        printf_counter("%s:Duty cost %dus\n", tag , Cost);
         return Cost;
 }
-
 
 void printData( char *data , int size , char *prefix , int binary )
 {
