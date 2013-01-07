@@ -43,6 +43,7 @@ static Socket2Uart socket_to_uart;
 #define  PERIOD_COMMAND_RETRY 20
 
 
+static int  writing_cpap=0;
 typedef enum{
 
     MODE,
@@ -187,7 +188,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         name:"TP",
         command_code:{0x93 , 0xd7},
         command_length:2,
-        expected_recv_length:4,
+        expected_recv_length:5,
         sample_count:25
     }
 
@@ -689,6 +690,7 @@ int ExecuteSeriesCommand( void )
                    printf_info("set CPAP pressure=%d\n" , set_pressure );
                    set_cpap_pressure.command_code[2]= set_pressure;
                    CPAPSendCommandDebug( &set_cpap_pressure );
+                   writing_cpap = 1;
                }
                is_CPAP_mode = 1;
            }
@@ -740,12 +742,14 @@ int ExecuteSeriesCommand( void )
             if ( is_CPAP_mode && command_index == APAP_PRESSURE )
                 continue;
 
-            if ( is_CPAP_mode==0 && command_index == CPAP_PRESSURE )
+            if ( is_CPAP_mode==0 && ( command_index == CPAP_PRESSURE || command_index == TP ) )
                 continue;
 
             err=cpap2psg( &command_list[command_index] );
             Duty_End( command_list[command_index].name );
 
+
+            if ( is_CPAP_mode && (command_index == TP) ) writing_cpap=0;
 
             static struct timeval last_time;
             struct timeval present_time;
@@ -763,7 +767,7 @@ int ExecuteSeriesCommand( void )
     if ( IsCPAP() )
     {
         //Mode=CPAP\n,TherapyPressure=%d\nRampTime=%d\nRampStartPressure=%d\nPVA=%d\nPVALevel=%d\n
-        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d,%d" ,
+        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d,%d,%d" ,
                   GetTherapyPressure(),
                   GetRampTime(),
                   GetRampStartPressure(),
@@ -774,13 +778,14 @@ int ExecuteSeriesCommand( void )
                   GetPatientFlow(),
                   GetBlow()?"ON":"OFF",
                   GetTP(),
+                  writing_cpap,
                   serial_number++
                  );
     }
     else
     {
         //"Mode=APAP\n,MaxPressure=%d\nMinPressure=%d\nInitPressure=%d\nPVA=%d\nPVALevel=%d\n"
-        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d,%d" ,
+        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d,%d,%d" ,
                   GetMaxPressure(),
                   GetMinPressure(),
                   GetInitPressure(),
@@ -791,6 +796,7 @@ int ExecuteSeriesCommand( void )
                   GetPatientFlow(),
                   GetBlow()?"ON":"OFF",
                   GetTP(),
+                  writing_cpap,
                   serial_number++
                  );
 
