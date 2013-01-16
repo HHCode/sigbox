@@ -432,7 +432,7 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
 
 int CPAPSendCommand( CPAPCommand *command )
 {
-    printf_debug("send %s command\n" , command->name );
+    printf_debug("========= %s =========\n" , command->name );
     return CPAP_SendCommand( command->command_code , command->command_length , command->recv_buffer , sizeof(command->recv_buffer) , command->expected_recv_length );
 }
 
@@ -663,7 +663,7 @@ int ExecuteSeriesCommand( void )
     int err=0;
 
 
-    usleep(20000);
+    usleep(40000);
 
     Duty_Start();
 
