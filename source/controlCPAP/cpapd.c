@@ -180,7 +180,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
     {
         command_number:BLOW,
         name:"BLOW",
-        command_code:{0x93 , 0x52},
+        command_code:{0x93 , 0xdb},
         command_length:2,
         expected_recv_length:4,
         sample_count:25
