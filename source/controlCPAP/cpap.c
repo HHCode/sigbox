@@ -34,10 +34,10 @@ static cpapGlobal cpap_global;
 
 void SetLed( int onoff )
 {
-    int fd=open( "/tmp/led" , O_WRONLY );
+    int fd=open( "/tmp/command" , O_WRONLY );
     if ( fd < 0 )
     {
-        perror( "open /tmp/led" );
+        perror( "open /tmp/command" );
     }
     else
     {
