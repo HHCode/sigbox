@@ -56,6 +56,7 @@ typedef enum{
     PVA,
     BLOW,
     TP,
+    RT,
     NUM_OF_COMMAND,
 
 
@@ -192,6 +193,14 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         sample_count:25
+    },
+    {
+        command_number:RT,
+        name:"RT",
+        command_code:{0x93 , 0xd9},
+        command_length:2,
+        expected_recv_length:9,
+        sample_count:0
     }
 
 };
@@ -442,36 +451,63 @@ int cpap2psg( CPAPCommand *command )
     int retry;
     for( retry=0 ; retry< PERIOD_COMMAND_RETRY ; retry++ )
     {
-        command->recv_length = CPAPSendCommand( command );
-
-        if ( command->recv_length < 0  )
+        //skip patient flow , TP , leakage sending command
+        if (  command->command_number != LEAK && command->command_number != TP && command->command_number != PATIENT_FLOW )
         {
-            if ( debug )
+            command->recv_length = CPAPSendCommand( command );
+
+            if ( command->recv_length < 0  )
             {
-                printf_debug("CPAPSendCommand error\n");
-                printData( (char *)command->recv_buffer , command->recv_length , "send data error\n" , 1 );
+                if ( debug )
+                {
+                    printf_debug("CPAPSendCommand error\n");
+                    printData( (char *)command->recv_buffer , command->recv_length , "send data error\n" , 1 );
+                }
+                continue;
             }
-            continue;
+
+
+            if ( command->recv_length == 1 && isErrorCode( command->recv_buffer[0] ) )
+            {
+                printf_error( "cmd %s has problem\n" , command->name );
+                break;
+            }
+
+            ret=0;
+
+            if ( debug && command->recv_length > 0 )
+                printData( (char *)command->recv_buffer , command->recv_length , "uart >>>" , 1 );
+        }
+        else
+        {
+            if ( command->command_number == TP )
+            {
+                command_list[TP].recv_buffer[3] = command_list[RT].recv_buffer[3];
+                command_list[TP].recv_buffer[2] = command_list[RT].recv_buffer[2];
+            }
+            else if ( command->command_number == LEAK )
+            {
+                command_list[LEAK].recv_buffer[3] = command_list[RT].recv_buffer[5];
+                command_list[LEAK].recv_buffer[2] = command_list[RT].recv_buffer[4];
+            }
+            else if ( command->command_number == PATIENT_FLOW  )
+            {
+                command_list[PATIENT_FLOW].recv_buffer[3] = command_list[RT].recv_buffer[7];
+                command_list[PATIENT_FLOW].recv_buffer[2] = command_list[RT].recv_buffer[6];
+            }
+
         }
 
-
-        if ( command->recv_length == 1 && isErrorCode( command->recv_buffer[0] ) )
+        //skip RT to output DA
+        if (  command->command_number != RT )
         {
-            printf_error( "cmd %s has problem\n" , command->name );
-            break;
-        }
-
-        ret=0;
-
-        if ( debug && command->recv_length > 0 )
-            printData( (char *)command->recv_buffer , command->recv_length , "uart >>>" , 1 );
-
-        if ( command->output_DA )
-        {
-            int adjustedValue;
-            adjustedValue = GetDAValue( command->command_number , command->max_value , (char *)command->recv_buffer );
-            printf_debug( "%s:%c >> DA: 0x%x\n" , command->name , command->output_DA , adjustedValue );
-            writeDAC( command->output_DA-'0' , adjustedValue );
+            if ( command->output_DA )
+            {
+                int adjustedValue;
+                adjustedValue = GetDAValue( command->command_number , command->max_value , (char *)command->recv_buffer );
+                printf_debug( "%s:%c >> DA: 0x%x\n" , command->name , command->output_DA , adjustedValue );
+                writeDAC( command->output_DA-'0' , adjustedValue );
+            }
         }
         Duty_End( "--DAC cost--" );
         break;
@@ -746,6 +782,7 @@ int ExecuteSeriesCommand( void )
 
             if ( is_CPAP_mode==0 && ( command_index == CPAP_PRESSURE || command_index == TP ) )
                 continue;
+
             Duty_End( command_list[command_index].name );
             err=cpap2psg( &command_list[command_index] );
             Duty_End( "--end--" );
