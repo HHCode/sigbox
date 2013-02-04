@@ -1,4 +1,0 @@
-IP=`get_key_value $ROOT/etc/signalBox.conf ip`
-MASK=`get_key_value $ROOT/etc/signalBox.conf mask`
-GW=`get_key_value $ROOT/etc/signalBox.conf gateway`
-setip fixip,$IP,$GW,$MASK

@@ -1,0 +1,121 @@
+#!/bin/sh
+
+#
+#controlCPAP?cmd=getID
+#
+
+. /var/www/commonScript
+
+if [ "$QUERY_STRING" != "" ];
+then
+    head
+    CPAP_CMD=`parse cmd $QUERY_STRING`
+else
+    QUERY_STRING=$1
+    CPAP_CMD=`parse cmd $QUERY_STRING`
+fi
+
+
+if [ "$CPAP_CMD" == "" ];then
+    echo FAILED
+    echo example:
+    echo http://127.0.0.1/controlCPAP?cmd=getID
+else
+    case $CPAP_CMD in
+    
+    DEVICE_ID )
+    	HEX_CMD="\xaa"
+    	EXPECT_READ=4
+        ;;
+    
+    CPAPTimeSetup )
+        YEAR=`parse YEAR $QUERY_STRING`
+        MONTH=`parse MONTH $QUERY_STRING`
+        DATE=`parse DATE $QUERY_STRING`
+        HOUR=`parse HOUR $QUERY_STRING`
+        MINUTE=`parse MINUTE $QUERY_STRING`
+	HEX_CMD="\x12\x$YEAR\x$MONTH\x$DATE\x$HOUR\x$MINUTE"
+        EXPECT_READ=0
+        ;;
+        
+    CPAP_USERDATA_STATUS )
+    	HEX_CMD="\x47"
+    	EXPECT_READ=18
+    	;;
+    	
+    CPAP_LONGTERM_READ )
+    	#http://192.168.1.202/controlCPAP?cmd=APAP_LONGTERM_READ&LL=1&LH=0
+    	LL=`parse LL $QUERY_STRING`
+    	LH=`parse LH $QUERY_STRING`
+        HEX_CMD="\x41\x$LL\x$LH"
+        EXPECT_READ=30
+    	;;
+    	
+    CPAP_DETAILRANGE_READ )
+        HEX_CMD="\x5e"
+        EXPECT_READ=10
+        ;;    	
+        
+    CPAP_DETAILINDEX_READ )
+        LI=`parse LI $QUERY_STRING`
+        HEX_CMD="\x5d\x$LI"
+        EXPECT_READ=10
+        ;;
+        
+    CPAP_DETAIL_READ )
+        LI=`parse LI $QUERY_STRING`
+        PN_1=`parse PN_1 $QUERY_STRING`
+        PN_2=`parse PN_2 $QUERY_STRING`
+    	HEX_CMD="\x5c\x$LI\x$PN_1\x$PN_2"
+    	EXPECT_READ=20
+        ;;
+            
+    CPAP_LONGTERM_READ_72H )
+        LI=`parse LI $QUERY_STRING`
+        HEX_CMD="\x5b\x$LI"
+        EXPECT_READ=30
+        ;;    	        
+        
+    CPAP_FINAL_PRESSURE_SET )
+    	FP_1=`parse FP_1 $QUERY_STRING`
+    	FP_2=`parse FP_2 $QUERY_STRING`
+        HEX_CMD="\xc2\x$FP_1\x$FP_2"
+        EXPECT_READ=1
+        ;;
+                        
+    CPAP_MODE_SET )
+        OM=`parse OM $QUERY_STRING`
+        HEX_CMD="\xc3\x$OM"
+        EXPECT_READ=1
+        ;;
+        
+    CPAP_GET_PRESS )
+        HEX_CMD="\xcb"
+        EXPECT_READ=5
+        ;;
+    CPAP_SET_PRESS )
+        PV=`parse PV $QUERY_STRING`
+        HEX_CMD="\xcd\x$PV"
+        EXPECT_READ=1
+        ;;
+    CPAP_UART )
+        HEX_CMD=`parse hex $QUERY_STRING`
+        EXPECT_READ=`parse read $QUERY_STRING`
+        HEX_CMD=`reverseBackslash $HEX_CMD`
+        ;;
+    CPAP_GET_STATUS )
+        echo -e "status-----" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 26 0
+        exit
+    esac
+    
+    while true
+    do
+        if [ "`pidof controlCPAP.out`" == "" ]
+        then
+            break
+        fi
+        exit
+    done
+   
+   echo -e "\x93$HEX_CMD-----" | /nand2/root/usr/bin/controlCPAP.out 127.0.0.1 25 $EXPECT_READ
+fi 

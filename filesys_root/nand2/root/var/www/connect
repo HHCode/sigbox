@@ -1,0 +1,21 @@
+#!/bin/sh
+
+. ./commonScript
+
+head
+
+connectName=`parse name $QUERY_STRING`
+
+if [ ! -e ./connectStatus ];then
+    if [ "$connectName" != "" ];then
+    	connectDate=`date +%s`
+        echo -e "FINISH\n$connectName"
+        echo "$connectName,$connectDate" > ./connectStatus
+    else
+        echo -e "FAILED\nplease input connect name"
+    fi
+else
+    printConnectStatus
+fi
+
+rear

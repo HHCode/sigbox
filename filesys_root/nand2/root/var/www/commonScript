@@ -1,0 +1,66 @@
+#!/bin/sh
+
+export PATH=$PATH:/sbin:/usr/bin:/bin:/nand2/root/usr/bin/
+
+head()
+{
+cat << EOF
+Content-type: text/plain
+Expires: $date
+
+EOF
+}
+
+
+
+rear()
+{
+echo
+    if [ "$CONTENT_LENGTH" != "" ] ; then
+        if [ "$CONTENT_LENGTH" -ne 0 ] ; then
+            echo 'Input:'
+            echo
+            dd bs=1 count=$CONTENT_LENGTH
+            echo
+        fi
+    fi
+}
+
+parse()
+{
+echo "$2" | sed -n "s/^.*$1=\([^&]*\).*$/\1/p" | sed "s/%20/ /g"
+}
+
+
+killproc()
+{
+    pidof $1
+    if [ $? -eq 0 ]
+    then
+        killall $1
+    fi
+}
+
+
+printConnectStatus()
+{
+    connectStatus=`cat ./connectStatus`
+    connectStart=${connectStatus##*,}
+    connectSecond=$((`date +%s`-$connectStart))
+    echo -e "FAILED\n${connectStatus%%,*},$connectSecond"
+}                  
+
+reverseBackslash()
+{
+echo "$1" | sed 's/\//\\/g'
+
+
+} 
+
+modify_key_value()
+{
+    TARGET_KEY=$1
+    REPLACEMENT_VALUE=$2
+    CONFIG_FILE=$3
+    sed -i "s/\($1 *= *\).*/\1$2/" $3
+}
