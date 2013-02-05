@@ -25,7 +25,7 @@
  #define WDIOF_SETTIMEOUT        0x0080
 #endif
 
-
+int hz=0;
 int rt_debug=0;
 int debug=0;
 int counter=0;
@@ -395,9 +395,9 @@ void *functionFIFO2DA( void *param )
 
 
 
-int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buffer )
+uint32_t GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buffer )
 {
-    int adjuested_value;
+    uint32_t adjuested_value;
 
     switch( command_number )
     {
@@ -408,8 +408,8 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
 
     case TP:
     {
-        char low=recv_buffer[2];
-        char hight=recv_buffer[3];
+        uint8_t low=recv_buffer[2];
+        uint8_t hight=recv_buffer[3];
         uint16_t flow_integer=( hight << 8 | low );
         //   printf("0x%x%x , %d\n" , hight , low , flow_integer );
         if ( flow_integer > max_value ) flow_integer = max_value;
@@ -419,18 +419,18 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
 
     case PATIENT_FLOW:
     {
-        char low=recv_buffer[2];
-        char hight=recv_buffer[3];
+        uint8_t low=recv_buffer[2];
+        uint8_t hight=recv_buffer[3];
         uint16_t flow_integer=( hight << 8 | low );
-     //   printf("0x%x%x , %d\n" , hight , low , flow_integer );
+        printf_debug("patient:0x%x%x , %d\n" , hight , low , flow_integer );
         if ( flow_integer > max_value ) flow_integer = max_value;
         adjuested_value = (65535.0 / max_value )*( flow_integer ) ;
         break;
     }
     case LEAK:
     {
-        char low=recv_buffer[2];
-        char hight=recv_buffer[3];
+        uint8_t low=recv_buffer[2];
+        uint8_t hight=recv_buffer[3];
         uint16_t leak_integer=( hight << 8 | low );
         if ( leak_integer > max_value ) leak_integer = max_value;
         adjuested_value = (65535.0 / max_value )*( leak_integer ) ;
@@ -516,7 +516,7 @@ int cpap2psg( CPAPCommand *command )
         {
             if ( command->output_DA )
             {
-                int adjustedValue;
+                uint32_t adjustedValue;
                 adjustedValue = GetDAValue( command->command_number , command->max_value , (char *)command->recv_buffer );
                 printf_debug( "%s:%c >> DA: 0x%x\n" , command->name , command->output_DA , adjustedValue );
                 if ( rt_debug )
@@ -808,7 +808,7 @@ int ExecuteSeriesCommand( void )
 
         Duty_End( command_list[command_index].name );
         err=cpap2psg( &command_list[command_index] );
-        Duty_End( "--end--" );
+        printf_hz( "--end--" );
         if ( is_CPAP_mode && (command_index == TP) ) writing_cpap=0;
 
         struct timeval *last_time = &command_list[command_index].last_time;
@@ -817,7 +817,7 @@ int ExecuteSeriesCommand( void )
         gettimeofday( &present_time , 0 );
 
         int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time->tv_sec*1000000+last_time->tv_usec;
-        printf_debug( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
+        printf_hz( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
 
         *last_time = present_time;
     }

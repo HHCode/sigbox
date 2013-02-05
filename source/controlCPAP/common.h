@@ -23,6 +23,12 @@ extern int rt_debug;
 }
 
 
+#define printf_hz(fmt, args...)\
+{\
+    if ( hz ) printf("%s[%d]: "fmt, __FILE__, __LINE__, ##args);\
+}
+
+
 #define printf_counter(fmt, args...)\
 {\
     if ( counter ) printf("%s[%d]: "fmt, __FILE__, __LINE__, ##args);\

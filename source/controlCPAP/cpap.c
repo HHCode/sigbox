@@ -312,7 +312,7 @@ void SetCPAPDontReopen( void )
 int recvCPAPResponse( int io_fd , uint8_t *responseBuffer , int responseBufferLength , uint8_t cmd_byte , int expectedLength )
 {
     int recv_size=0;
-    int retry=3;
+    int retry=10;
     int recv_return;
     uint8_t *x93_cmd=0;
     uint8_t *e5=0;
