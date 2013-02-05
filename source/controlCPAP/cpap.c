@@ -113,10 +113,8 @@ int CPAP_send( int descriptor , char *cmd , int cmd_length )
         return -1;
     }
 
-    if ( rs232_write( descriptor , cmd , cmd_length ) == 0 )
+    if ( rs232_write( descriptor , cmd , cmd_length ) < 0 )
     {
-        perror( "write IO error" );
-
         tryToOpenCPAP();
 
         if ( descriptor >= 0 )
@@ -145,7 +143,7 @@ static int SendCommand( int descriptor , char *command_code , int command_length
     command_code[command_length]=(char)checkedXor;
     command_length++;
 
-    if ( rs232_write( descriptor , command_code , command_length ) == 0 )
+    if ( rs232_write( descriptor , command_code , command_length ) < 0 )
         return -1;
 
     int responseSize;

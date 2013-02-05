@@ -39,7 +39,7 @@ static	char rs232_dbg='N';
 */
 int rs232_recv( int handle , char *data , int size )
 {
-	int		err;
+    int		err=-1;
 	fd_set	fdest;	
 	struct	timeval timeout;
 
@@ -55,20 +55,18 @@ int rs232_recv( int handle , char *data , int size )
 		do{
             err = select(handle+1, &fdest , NULL , NULL, &timeout );
 
-			if (err > 0 )
-			{
+            if (err > 0 )
+            {
                 if ( FD_ISSET( handle, &fdest ) )
-				{
-                    err = read( handle , data , size );
-					if ( err < 0 )
-					{
-                        if (errno != EINTR && errno != EAGAIN )
+                {
+                    do{
+                        err = read( handle , data , size );
+                        if ( err < 0 )
                         {
-                            if ( debug ) perror( "rs232 read error" );
+                            perror( "rs232 read error" );
                         }
-                    }
-                    return err;
-				}
+                    }while( err < 0 && (errno == EINTR || errno == EAGAIN) );
+                }
 				else
 					printf("FD_ISSET=0\n");
             }
@@ -87,7 +85,7 @@ int rs232_recv( int handle , char *data , int size )
 
 	}
 
-	return 0;
+    return err;
 }
 
 
@@ -113,7 +111,7 @@ int rs232_SetBaudrate( int handle, int nBaudrate )
 
     if((tcgetattr (handle, &rs232_attr)) < 0)
     {
-        perror("tcgetattr\n");
+        perror("tcgetattr");
         printf_debug("tcgetattr error\n");
         return -1;
     }
@@ -227,13 +225,13 @@ int rs232_open( char *devName , int nBaudrate )
 
     if((handle = open ( devName , O_RDWR | O_SYNC )) < 0)
     {
-        printf_debug("open error\n");
+        perror("open error");
         return -1;
     }
 
 	if ( rs232_SetBaudrate( handle , nBaudrate ) < 0 )
 	{
-        printf_debug("Set baud rate error\n");
+        perror("Set baud rate error");
 		close(handle);
 		handle = -1;
 	}
@@ -292,7 +290,18 @@ int rs232_read(int handle, char *buffer, long nLen)
 {
     memset (buffer, 0x0, nLen);
 
-    return read (handle, buffer, nLen);
+    int ret;
+
+    do {
+        ret = read (handle, buffer, nLen);
+        if ( ret < 0 )
+        {
+            perror( "read rs232:" );
+        }
+    }while( ret < 0 && errno == EINTR );
+
+
+    return ret;
 }
 
 
@@ -319,7 +328,17 @@ int rs232_write(int handle, char *buffer, long nLen)
     if ( rs232_dbg == 'Y' )
         printData( (char *)buffer , nLen , "" , 1 );
 
-    return write (handle, buffer, nLen);
+    int ret;
+
+    do {
+        ret = write (handle, buffer, nLen);
+        if ( ret < 0 )
+        {
+            perror( "write rs232:" );
+        }
+    }while( ret < 0 && errno == EINTR );
+
+    return ret;
 }
 
 
@@ -343,7 +362,7 @@ int rs232_WaitingByte( int handle )
 
 	err = ioctl( handle , FIONREAD , &Size );
 	
-	if ( err < 0 ) perror("rs232_WaitingByte error\n");
+    if ( err < 0 ) perror("rs232_WaitingByte error");
 
     if ( rs232_dbg )
         printf("WaitingByte=%d\n",err);
