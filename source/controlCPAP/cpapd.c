@@ -41,14 +41,17 @@ static Socket2Uart socket_to_uart;
 #define BUF_SIZE 1024
 #define SERVPORT 9527
 
-#define  PERIOD_COMMAND_RETRY 20
+#define  PERIOD_COMMAND_RETRY 2
 
+#define RT_TICK_PERIOD 0.2
+#define TRANS_HZ( HZ ) ((1/(HZ*RT_TICK_PERIOD))-1)
+
+#define RT_INC_NUMBER
 
 static int  writing_cpap=0;
 typedef enum{
 
     MODE,
-    CPAP_PRESSURE,
     APAP_PRESSURE,
     PATIENT_FLOW,
     LEAK,
@@ -89,7 +92,7 @@ typedef struct {
 static CPAPCommand set_cpap_pressure=
 {
     command_number:SET_CPAP_PRESSURE,
-    name:"CPAP_PRESSURE",
+    name:"SET_CPAP_PRESSURE",
     command_code:{0x93 , 0xcd},
     command_length:3,
     expected_recv_length:1                  //include xor
@@ -98,7 +101,7 @@ static CPAPCommand set_cpap_pressure=
 static CPAPCommand set_apap_pressure=
 {
     command_number:SET_APAP_PRESSURE,
-    name:"APAP_PRESSURE",
+    name:"SET_APAP_PRESSURE",
     command_code:{0x93 , 0xd1},
     command_length:5,
     expected_recv_length:1                  //include xor
@@ -120,17 +123,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xc4},
         command_length:2,
         expected_recv_length:4,                  //include xor
-        sample_count:50
-    },
-    {
-        command_number:CPAP_PRESSURE,
-        name:"CPAP Pressure",           //A Mask Pressure 0 to 30 cm H2O 0 to 1V DC
-        command_code:{0x93 , 0xcb},
-        command_length:2,
-        expected_recv_length:5,                  //include xor
-        output_DA:'0',
-        max_value:200,
-        sample_count:20
+        sample_count:TRANS_HZ(0.3)
     },
     {
         command_number:APAP_PRESSURE,
@@ -140,7 +133,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         expected_recv_length:8,
         output_DA:'0',
         max_value:200,
-        sample_count:2
+        sample_count:TRANS_HZ(1)
     },
     {
         command_number:PATIENT_FLOW,
@@ -150,7 +143,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         expected_recv_length:5,
         output_DA:'1',
         max_value:2000,
-        sample_count:0
+        sample_count:TRANS_HZ(5)
     },
     {
         command_number:LEAK,
@@ -160,7 +153,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         expected_recv_length:5,
         output_DA:'2',
         max_value:200,
-        sample_count:0
+        sample_count:TRANS_HZ(5)
     },
     {
         command_number:RAMP,
@@ -168,7 +161,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xd5},
         command_length:2,
         expected_recv_length:5,
-        sample_count:50
+        sample_count:TRANS_HZ(0.5)
     },
     {
         command_number:PVA,
@@ -176,7 +169,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xd6},
         command_length:2,
         expected_recv_length:5,
-        sample_count:50
+        sample_count:TRANS_HZ(0.4)
     },
     {
         command_number:BLOW,
@@ -184,7 +177,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xdb},
         command_length:2,
         expected_recv_length:4,
-        sample_count:25
+        sample_count:TRANS_HZ(1)
     },
     {
         command_number:TP,
@@ -192,15 +185,21 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_code:{0x93 , 0xd7},
         command_length:2,
         expected_recv_length:5,
-        sample_count:25
+        max_value:200,
+        output_DA:'0',
+        sample_count:TRANS_HZ(5)
     },
     {
         command_number:RT,
         name:"RT",
         command_code:{0x93 , 0xd9},
+#ifdef RT_INC_NUMBER
+        command_length:3,
+#else
         command_length:2,
+#endif
         expected_recv_length:9,
-        sample_count:0
+        sample_count:TRANS_HZ(5)
     }
 
 };
@@ -406,10 +405,16 @@ int GetDAValue( PERIODIC_COMMAND command_number , int max_value , char *recv_buf
         adjuested_value = (65535.0 / max_value )*recv_buffer[5];
         break;
 
-    case CPAP_PRESSURE:
-        if ( recv_buffer[2] > max_value ) recv_buffer[2] = max_value;
-        adjuested_value = (65535.0 / max_value )*recv_buffer[2];
+    case TP:
+    {
+        char low=recv_buffer[2];
+        char hight=recv_buffer[3];
+        uint16_t flow_integer=( hight << 8 | low );
+        //   printf("0x%x%x , %d\n" , hight , low , flow_integer );
+        if ( flow_integer > max_value ) flow_integer = max_value;
+        adjuested_value = (65535.0 / max_value )*( flow_integer ) ;
         break;
+    }
 
     case PATIENT_FLOW:
     {
@@ -454,6 +459,13 @@ int cpap2psg( CPAPCommand *command )
         //skip patient flow , TP , leakage sending command
         if (  command->command_number != LEAK && command->command_number != TP && command->command_number != PATIENT_FLOW )
         {
+#ifdef RT_INC_NUMBER
+            if ( command->command_number == RT )
+            {
+                static unsigned char inc_number;
+                command->command_code[2]=inc_number++;
+            }
+#endif
             command->recv_length = CPAPSendCommand( command );
 
             if ( command->recv_length < 0  )
@@ -575,12 +587,6 @@ int IsCPAP( void )
         return 0;
 }
 
-int GetTherapyPressure( void )
-{
-    return command_list[CPAP_PRESSURE].recv_buffer[2];
-}
-
-
 int GetRampTime( void )
 {
     return command_list[RAMP].recv_buffer[2];
@@ -618,9 +624,9 @@ int GetPVALevel( void )
 }
 
 
-int GetPatientFlow( void )
+double GetPatientFlow( void )
 {
-    int flow=command_list[PATIENT_FLOW].recv_buffer[3]<<8 | command_list[PATIENT_FLOW].recv_buffer[2];
+    double flow=(double)(command_list[PATIENT_FLOW].recv_buffer[3]<<8 | command_list[PATIENT_FLOW].recv_buffer[2])/100;
     if ( flow > 10000 )
         printf_error( "patient flow abnormal 0x%x,0x%x\n" , command_list[PATIENT_FLOW].recv_buffer[3] , command_list[PATIENT_FLOW].recv_buffer[2] );
 
@@ -632,28 +638,6 @@ int GetLeak( void )
 {
     int leak_value=command_list[LEAK].recv_buffer[3]<<8 | command_list[LEAK].recv_buffer[2];
     return leak_value;
-}
-
-int GetPressure( void )
-{
-    int present_pressure;
-    if ( IsCPAP() )
-    {
-        present_pressure = command_list[CPAP_PRESSURE].recv_buffer[2];
-    }
-    else
-    {
-        present_pressure = command_list[APAP_PRESSURE].recv_buffer[5];
-    }
-    return present_pressure;
-}
-
-
-
-int GetCPAPPressure( void )
-{
-    int present_pressure=command_list[CPAP_PRESSURE].recv_buffer[2];
-    return present_pressure;
 }
 
 
@@ -675,6 +659,32 @@ int GetTP( void )
     int flow=command_list[TP].recv_buffer[3]<<8 | command_list[TP].recv_buffer[2];
     return flow;
 }
+
+
+int GetPressure( void )
+{
+    int present_pressure;
+    if ( IsCPAP() )
+    {
+        present_pressure = GetTP();
+    }
+    else
+    {
+        present_pressure = command_list[APAP_PRESSURE].recv_buffer[5];
+    }
+    return present_pressure;
+}
+
+int GetTherapyPressure( void )
+{
+    return GetTP();
+}
+
+int GetCPAPPressure( void )
+{
+    return GetTP();
+}
+
 
 
 int CPAPSendCommandDebug( CPAPCommand *command )
@@ -699,7 +709,7 @@ int ExecuteSeriesCommand( void )
     int err=0;
 
 
-    usleep(200000);
+    usleep( RT_TICK_PERIOD * 1000000 );
 
     Duty_Start();
 
@@ -766,7 +776,7 @@ int ExecuteSeriesCommand( void )
        }
     }
 
-        for( command_index=CPAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
+        for( command_index=APAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
         {
             if ( command_list[command_index].dec_count > 0  )
             {
@@ -780,7 +790,7 @@ int ExecuteSeriesCommand( void )
             if ( is_CPAP_mode && command_index == APAP_PRESSURE )
                 continue;
 
-            if ( is_CPAP_mode==0 && ( command_index == CPAP_PRESSURE || command_index == TP ) )
+            if ( is_CPAP_mode==0 && command_index == TP )
                 continue;
 
             Duty_End( command_list[command_index].name );
@@ -804,7 +814,7 @@ int ExecuteSeriesCommand( void )
     if ( IsCPAP() )
     {
         //Mode=CPAP\n,TherapyPressure=%d\nRampTime=%d\nRampStartPressure=%d\nPVA=%d\nPVALevel=%d\n
-        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d,%d,%d" ,
+        snprintf( status_command , sizeof(status_command),"CPAP,%d,%d,%d,%s,%d,%d,%d,%2.2f,%s,%d,%d,%d" ,
                   GetTherapyPressure(),
                   GetRampTime(),
                   GetRampStartPressure(),
@@ -822,7 +832,7 @@ int ExecuteSeriesCommand( void )
     else
     {
         //"Mode=APAP\n,MaxPressure=%d\nMinPressure=%d\nInitPressure=%d\nPVA=%d\nPVALevel=%d\n"
-        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d,%d,%d,%s,%d,%d,%d" ,
+        snprintf( status_command , sizeof(status_command) , "APAP,%d,%d,%d,%s,%d,%d,%d,%2.2f,%s,%d,%d,%d" ,
                   GetMaxPressure(),
                   GetMinPressure(),
                   GetInitPressure(),
