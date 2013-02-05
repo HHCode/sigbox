@@ -26,6 +26,7 @@
 #endif
 
 
+int rt_debug=0;
 int debug=0;
 int counter=0;
 
@@ -198,7 +199,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
 #else
         command_length:2,
 #endif
-        expected_recv_length:9,
+        expected_recv_length:10,
         sample_count:TRANS_HZ(5)
     }
 
@@ -518,6 +519,15 @@ int cpap2psg( CPAPCommand *command )
                 int adjustedValue;
                 adjustedValue = GetDAValue( command->command_number , command->max_value , (char *)command->recv_buffer );
                 printf_debug( "%s:%c >> DA: 0x%x\n" , command->name , command->output_DA , adjustedValue );
+                if ( rt_debug )
+                {
+                    int tab_number=0;
+                    for( tab_number=0 ; tab_number<command->output_DA-'0' ; tab_number++ )
+                        printf( "\t" );
+
+                    printf( "DA(%s)%d\n" , command->name , adjustedValue );
+                }
+
                 writeDAC( command->output_DA-'0' , adjustedValue );
             }
         }
@@ -776,38 +786,41 @@ int ExecuteSeriesCommand( void )
        }
     }
 
-        for( command_index=APAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
+    if ( GetCPAPDescriptor() < 0 )
+        return err;
+
+    for( command_index=APAP_PRESSURE ; command_index<NUM_OF_COMMAND ; command_index++ )
+    {
+        if ( command_list[command_index].dec_count > 0  )
         {
-            if ( command_list[command_index].dec_count > 0  )
-            {
-                command_list[command_index].dec_count--;
-                continue;
-            }
-            else
-                command_list[command_index].dec_count = command_list[command_index].sample_count;
-
-            //choose one of mode
-            if ( is_CPAP_mode && command_index == APAP_PRESSURE )
-                continue;
-
-            if ( is_CPAP_mode==0 && command_index == TP )
-                continue;
-
-            Duty_End( command_list[command_index].name );
-            err=cpap2psg( &command_list[command_index] );
-            Duty_End( "--end--" );
-            if ( is_CPAP_mode && (command_index == TP) ) writing_cpap=0;
-
-            struct timeval *last_time = &command_list[command_index].last_time;
-            struct timeval present_time;
-
-            gettimeofday( &present_time , 0 );
-
-            int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time->tv_sec*1000000+last_time->tv_usec;
-            printf_debug( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
-
-            *last_time = present_time;
+            command_list[command_index].dec_count--;
+            continue;
         }
+        else
+            command_list[command_index].dec_count = command_list[command_index].sample_count;
+
+        //choose one of mode
+        if ( is_CPAP_mode && command_index == APAP_PRESSURE )
+            continue;
+
+        if ( is_CPAP_mode==0 && command_index == TP )
+            continue;
+
+        Duty_End( command_list[command_index].name );
+        err=cpap2psg( &command_list[command_index] );
+        Duty_End( "--end--" );
+        if ( is_CPAP_mode && (command_index == TP) ) writing_cpap=0;
+
+        struct timeval *last_time = &command_list[command_index].last_time;
+        struct timeval present_time;
+
+        gettimeofday( &present_time , 0 );
+
+        int diff_usec=present_time.tv_sec*1000000+present_time.tv_usec - last_time->tv_sec*1000000+last_time->tv_usec;
+        printf_debug( "D/A period is %d ms , %f Hz\n" ,  diff_usec/1000 , 1000000.0/diff_usec );
+
+        *last_time = present_time;
+    }
 
     char status_command[256];
     static uint32_t serial_number;
@@ -931,6 +944,11 @@ int cpapd( void )
     Init_socket2uart( &socket_to_uart );
     while(1)
     {
+        if ( access( "/etc/rt" , 0 ) == 0 )
+            rt_debug=1;
+        else
+            rt_debug=0;
+
         if ( access( "/etc/debug" , 0 ) == 0 )
             debug=1;
         else

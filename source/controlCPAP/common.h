@@ -4,11 +4,18 @@
 #include <errno.h>
 extern int debug;
 extern int counter;
+extern int rt_debug;
 
 #define printf_info(fmt, args...)\
 {\
     printf("%s[%d]: "fmt, __FILE__, __LINE__, ##args);\
 }
+
+#define printf_rt_debug(fmt, args...)\
+{\
+    if ( rt_debug ) printf("%s[%d]: "fmt, __FILE__, __LINE__, ##args);\
+}
+
 
 #define printf_debug(fmt, args...)\
 {\
