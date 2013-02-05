@@ -699,7 +699,7 @@ int ExecuteSeriesCommand( void )
     int err=0;
 
 
-    usleep(40000);
+    usleep(200000);
 
     Duty_Start();
 
