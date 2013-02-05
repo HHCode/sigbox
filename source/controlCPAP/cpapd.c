@@ -153,7 +153,7 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
         command_length:2,
         expected_recv_length:5,
         output_DA:'2',
-        max_value:200,
+        max_value:1023,
         sample_count:TRANS_HZ(5)
     },
     {
