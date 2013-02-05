@@ -205,6 +205,35 @@ static CPAPCommand command_list[NUM_OF_COMMAND]=
 
 };
 
+typedef struct
+{
+        int pid;
+        int priority;
+
+}AVOsal_Priority;
+
+#define AVOSAL_PRIORITY_MYSELF_PID -1
+
+int AVOsal_Set_ProcessPriority( AVOsal_Priority *priority )
+{
+    int error;
+    int pid;
+
+    if ( priority->pid == AVOSAL_PRIORITY_MYSELF_PID )
+        pid = getpid();
+    else
+        pid = priority->pid;
+
+    error = setpriority( PRIO_PROCESS , pid , priority->priority );
+
+    if ( error < 0 )
+    {
+        perror("Set_ThreadNice");
+    }
+    return error;
+}
+
+
 int readAChar( int fifoFD )
 {
     char aChar;
@@ -936,6 +965,11 @@ int cpapd( void )
     int last_serial_number;
     signal(SIGPIPE, sigpipe_handler);
 
+    AVOsal_Priority priority;
+    priority.pid = AVOSAL_PRIORITY_MYSELF_PID;
+    priority.priority = -19;
+    AVOsal_Set_ProcessPriority( &priority );
+
 //    int watchdog;
  //   watchdog = initWatchDog( 5 );
     initDAC();
@@ -958,6 +992,7 @@ int cpapd( void )
             counter=1;
         else
             counter=0;
+
    //     ResetWatchDog( watchdog );
         if ( socket2uart_IsConnect( &socket_to_uart ) == 0 )
         {
