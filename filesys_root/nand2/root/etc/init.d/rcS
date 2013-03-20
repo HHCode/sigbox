@@ -28,7 +28,7 @@ cd $ROOT/sh
 ln -s $ROOT/var/www /var/www
 ln -s $ROOT/etc/dropbear/ /etc/dropbear
 cp $ROOT/etc/passwd /etc
-cp $ROOT/usr/bin/testDA.sh /usr/bin
+cp $ROOT/usr/bin/testDA* /usr/bin
 
 /nand2/root/sh/fwup.sh &
 
