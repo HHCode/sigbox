@@ -1,5 +1,5 @@
 #!/bin/sh
-sleep 5ZZ
+sleep 5
 if [ -e /mnt/OHCI/ ];then
     if [ ! -e /mnt/OHCI/`cat /var/www/version`.femet ];then
    	echo "update fw..."

@@ -972,7 +972,8 @@ int cpapd( void )
 
 //    int watchdog;
  //   watchdog = initWatchDog( 5 );
-    initDAC();
+    if ( initDAC() )
+	printf_error("initDAC failed\n");
     Init_CPAP();
     pthread_create( &threadTickGenerator , 0 , functionTickGenerator , 0 );
     Init_socket2uart( &socket_to_uart );

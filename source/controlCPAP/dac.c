@@ -53,9 +53,9 @@ static int openDAC( int ch)
 
 int initDAC( void )
 {
-    if ( openDAC(1) < 0 )
+    if ( openDAC(0) < 0 )
         return -1;
-    dacDesc[0] = openDAC(1);
+    dacDesc[0] = openDAC(0);
 
     return 0;
 }
